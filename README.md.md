@@ -8,15 +8,15 @@ BusTrack solves the core problem of public transport in smaller Indian cities �
 
 ## How It Works
 
-Drivers periodically update their current location and average speed through the driver portal. When a driver hasn't updated recently, the system automatically estimates the bus's current position using dead reckoning — calculating how far the bus has likely traveled based on its last known position, reported speed, and time elapsed. Passengers query this estimated position to get real-time location and ETA to their stop.
+Drivers periodically update their current location and average speed through the driver portal. When a driver hasn't updated recently, the system automatically estimates the bus's current position using dead reckoning — calculating how far the bus has likely traveled based on its last known position, reported speed, and time elapsed. Passengers query this estimated position to get near real-time estimated location and ETA to their stop.
 
 ---
 
 ## Features
 
 - **Role-based access** — Passenger, Driver, and Admin roles with JWT authentication
-- **Dead reckoning engine** — Estimates bus position between driver updates using speed × time
-- **ETA calculation** — Returns estimated arrival time to any stop on the route
+- **Dead reckoning engine** — The system estimates the bus position by projecting its last known coordinates forward using reported speed  and elapsed time.
+- **ETA calculation** — ETA is calculated by combining the estimated current bus position with route stop distance using OpenRouteServices
 - **Route and stop management** — Admin can manage bus routes, stops, and assign drivers
 - **Real Indian transit data** — Bus route and stop data sourced from data.gov.in open transit datasets
 - **Travel time calculation** — Uses OpenRouteService API for distance and travel time between coordinates
