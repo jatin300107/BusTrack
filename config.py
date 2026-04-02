@@ -1,0 +1,3 @@
+SECRET_KEY = "bustrack secret key"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
