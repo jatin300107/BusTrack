@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, create_engine, Session
 
-from model import User, Role
+from bustrack.model import User, Role
 
 engine = create_engine("sqlite:///bust_track.db", echo=True)
 
@@ -31,3 +31,6 @@ def role_seeding():
             print("Default roles seeded: admin, driver, passenger")
         else:
             print("Roles already exist, skipping seeding")
+
+if __name__ == "__main__":
+    create_db()

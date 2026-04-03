@@ -1,9 +1,9 @@
-from config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+from bustrack.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from jose import jwt 
 from fastapi import HTTPException
 from passlib.hash import bcrypt
 from sqlmodel import Session, select
-from model import Role, User
+from bustrack.model import Role, User
 from datetime import datetime , timedelta
 def verify_register_details(user,db : Session):
     existing = db.exec(select(User).where(User.email == user.email)).first()
@@ -29,7 +29,7 @@ def verify_password(plain_password,hashed_password):
 def verify_login_details(user, db : Session):
     existing = db.exec(select(User).where(User.username==user.username)).first()
     if not existing:
-        raise HTTPException(status_code=400,details="Invalid username or password")
+        raise HTTPException(status_code=400,detail="Invalid username or password")
     if not verify_password(user.password, existing.password):
         raise HTTPException(status_code=400,details="Invalid username or password")
     return existing
