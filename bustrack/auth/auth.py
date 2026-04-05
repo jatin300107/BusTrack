@@ -2,7 +2,7 @@ from typing import Optional
 from pydantic import  BaseModel
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select, SQLModel
-from bustrack.utils import verify_register_details , create_password_hash , assign_role , verify_login_details , verify_password , create_jwt_token
+from bustrack.auth.utils import verify_register_details , create_password_hash , assign_role , verify_login_details , verify_password , create_jwt_token
 from create_db import get_session
 from bustrack.model import User, Role
 from fastapi.security import OAuth2PasswordRequestForm
