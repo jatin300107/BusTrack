@@ -39,7 +39,7 @@ class LoginUser(BaseModel):
     password : str
 
 @auth.post('/login')
-def login(db : Session = Depends(get_session) , form_data: OAuth2PasswordRequestForm = Depends()):
-    user_obj = verify_login_details(username = form_data.username, password=form_data.password ,db =  db)
+def login(user : LoginUser , db : Session = Depends(get_session)):
+    user_obj = verify_login_details(username = user.username, password=user.password ,db =  db)
     token = create_jwt_token(user_obj)
     return {"msg": "Login successful", "access_token": token}

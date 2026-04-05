@@ -1,7 +1,7 @@
 from jose import jwt
 from bustrack.config import SECRET_KEY , ALGORITHM
 from fastapi import HTTPException , Depends
-from bustrack.model import User
+from bustrack.model import User , Bus
 from sqlmodel import Session, select
 from create_db import get_session
 from fastapi.security import OAuth2PasswordBearer
@@ -30,5 +30,15 @@ def require_admin(token : str= Depends(oauth2_scheme), db : Session = Depends(ge
     else: 
         return user_details
 
+def list_of_all_buses(db):
+    buses = db.exec(select(Bus)).all()
+    return buses
 
 
+def remove_bus(bus_id , db : Session):
+    bus = db.get(Bus , bus_id)
+    if not bus:
+        raise HTTPException(status_code=404 , detail="Bus not found")
+    db.delete(bus)
+    db.commit()
+    return None
