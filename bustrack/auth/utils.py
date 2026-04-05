@@ -31,7 +31,7 @@ def verify_login_details(username,password, db : Session):
     if not existing:
         raise HTTPException(status_code=400,detail="Invalid username or password")
     if not verify_password(password, existing.password):
-        raise HTTPException(status_code=400,details="Invalid username or password")
+        raise HTTPException(status_code=400,detail="Invalid username or password")
     return existing
 
 def create_jwt_token(user : User):
