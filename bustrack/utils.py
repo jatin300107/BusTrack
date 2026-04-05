@@ -26,11 +26,11 @@ def assign_role(role , db : Session):
 def verify_password(plain_password,hashed_password):
     return bcrypt.verify(plain_password,hashed_password)
 
-def verify_login_details(user, db : Session):
-    existing = db.exec(select(User).where(User.username==user.username)).first()
+def verify_login_details(username,password, db : Session):
+    existing = db.exec(select(User).where(User.username==username)).first()
     if not existing:
         raise HTTPException(status_code=400,detail="Invalid username or password")
-    if not verify_password(user.password, existing.password):
+    if not verify_password(password, existing.password):
         raise HTTPException(status_code=400,details="Invalid username or password")
     return existing
 

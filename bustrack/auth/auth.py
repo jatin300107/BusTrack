@@ -5,6 +5,7 @@ from sqlmodel import Session, select, SQLModel
 from bustrack.utils import verify_register_details , create_password_hash , assign_role , verify_login_details , verify_password , create_jwt_token
 from create_db import get_session
 from bustrack.model import User, Role
+from fastapi.security import OAuth2PasswordRequestForm
 
 auth = APIRouter()
 
@@ -38,7 +39,7 @@ class LoginUser(BaseModel):
     password : str
 
 @auth.post('/login')
-def login(user : LoginUser, db : Session = Depends(get_session)):
-    user_obj = verify_login_details(user,db)
+def login(db : Session = Depends(get_session) , form_data: OAuth2PasswordRequestForm = Depends()):
+    user_obj = verify_login_details(username = form_data.username, password=form_data.password ,db =  db)
     token = create_jwt_token(user_obj)
     return {"msg": "Login successful", "access_token": token}

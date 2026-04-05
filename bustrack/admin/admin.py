@@ -1,15 +1,14 @@
 from fastapi import APIRouter, Depends
-from fastapi.security import OAuth2PasswordBearer
-from .utils import get_user_id_from_token , get_user_details
+
+from .utils import get_user_id_from_token , get_user_details , require_admin
 admin = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+from sqlmodel import Session
+from create_db import get_session
 
 @admin.get('/admin/dashboard')
-def admin_dashboard(token : str= Depends(oauth2_scheme)):
-    user_id = get_user_id_from_token(token)
-    user_details = get_user_details(user_id)
-    if user_details["role"] != "admin":
-        return {"msg" : "Access denied. Invalid role"}
-    else:
-        return {"msg" : f"Welcome {user_details["username"]} to the admin dashboard!"}
+def admin_dashboard(user = Depends(require_admin) , db : Session = Depends(get_session)):
+    
+    
+        return {"msg" : f"Welcome {user["username"]} to the admin dashboard!"}
     
