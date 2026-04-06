@@ -1,7 +1,7 @@
 from jose import jwt
 from bustrack.config import SECRET_KEY , ALGORITHM
 from fastapi import HTTPException , Depends
-from bustrack.model import User , Bus , Schedule , Route  , Role
+from bustrack.model import User , Bus , Schedule , Route  , Role , Stop ,RouteStopLink
 from sqlmodel import Session, select
 from create_db import get_session
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
