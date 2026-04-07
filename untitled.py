@@ -1,13 +1,33 @@
 import openrouteservice
 import json
-client = openrouteservice.Client(key="eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImJjMzBmMzkxMTM4MTRiODI5NzY0Zjc0NTA3YmRlNjZkIiwiaCI6Im11cm11cjY0In0=")
+from bustrack.config import api_key
+client = openrouteservice.Client(key=api_key)
 
-coords = [[77.2090, 28.6139], [77.2310, 28.6280]]  # [lng, lat]
+def get_route_properties(start,end):
 
-route = client.directions(
-    coordinates=coords,
-    profile="driving-car",
-    format="geojson"
-)
 
-print(json.dumps(route, indent=2))
+    route = client.directions(
+        coordinates=[start , end],
+        profile="driving-car",
+        format="geojson"
+    )
+    route_summary = route["features"][0]["properties"]["summary"]
+    return route_summary
+
+def get_route_geometry(start,end):
+
+
+    route = client.directions(
+        coordinates=[start , end],
+        profile="driving-car",
+        format="geojson"
+    )
+    route_geometry= route["features"][0]["geometry"]["coordinates"]
+    return route_geometry
+def get_coordinates(address):
+    address = client.pelias_search(text=address)["features"][0]["geometry"]["coordinates"]
+    return address
+
+def get_address(coordinates):
+    result = client.pelias_reverse(coordinates)["features"][0]["geometry"]["label"]
+    return result
