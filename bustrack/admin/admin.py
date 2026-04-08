@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends , HTTPException
 from datetime import datetime
-from .utils import  require_admin , remove_bus , list_of_all_buses , save_schedule , schedule_options , get_route_list , add_stop_to_route
-
-from pydantic import BaseModel
-from sqlmodel import Session
+from .utils import  require_admin , remove_bus , list_of_all_buses , save_schedule , schedule_options , get_route_list , add_stop_to_route , is_stop_on_route
+from bustrack.model import User
+from pydantic import BaseModel 
+from sqlmodel import Session , select 
+from typing import Optional, List
 from create_db import get_session
-
+from api_sevices import get_route_properties, get_coordinates
+from bustrack.model import Route , RouteStopLink , Stop
 admin = APIRouter()
 
 @admin.get('/admin/dashboard')
@@ -57,6 +59,43 @@ def add_stop(details: AddStop, user=Depends(require_admin), db: Session=Depends(
 
 
 
+@admin.get('/admin/registered-users')
+def get_registered_user(user=Depends(require_admin),db: Session=Depends(get_session)):
+       users = db.exec(select(User)).all() 
+       users_list = []
+       for user in users:
+              users_list.append({user.username : user.role.name})
+        
+       return  {"List of users" : users_list}
+class Route_Details(BaseModel):
+       name : str
+       start_point : str
+       end_point : str
+       stops : Optional[List]
+@admin.post('/admin/add-route')
+def add_route(route_details : Route_Details , user=Depends(require_admin),db: Session=Depends(get_session)):
+        start_coordinates = get_coordinates(address=route_details.start_point)
+        end_coordinates = get_coordinates(address=route_details.end_point)
+        distance , geometry = get_route_properties( start=start_coordinates  , end= end_coordinates)
+        route = Route(name = route_details.name , total_distance = distance , geometry = geometry)
+        db.add(route)
+        db.commit()
+        db.refresh(route)
+        route_stop_list = []
+        for stop_name in route_details.stops:
+               stop = db.exec(select(Stop).where(Stop.name == stop_name)).first()
+               if not stop:
+                      raise HTTPException(status_code=404, detail=f"Invalid stop name: {stop_name}")
+    
+               stop_coords = [stop.longitude, stop.latitude]  # [lon, lat]
+               if not is_stop_on_route(stop_coords, geometry):
+                        raise HTTPException(status_code=400, detail=f"Stop '{stop_name}' is not on this route")
+
+               route_stop = RouteStopLink(route_id = route.id , stop_id = stop.id)
+               route_stop_list.append(route_stop)
+        db.add_all(route_stop_list)
+        db.commit()
+        return {"msg"  : "Route created successfully"}
         
         
     

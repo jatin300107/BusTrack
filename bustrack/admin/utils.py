@@ -1,11 +1,18 @@
 from jose import jwt
-from bustrack.config import SECRET_KEY , ALGORITHM
+
 from fastapi import HTTPException , Depends
 from bustrack.model import User , Bus , Schedule , Route  , Role , Stop ,RouteStopLink
 from sqlmodel import Session, select
 from create_db import get_session
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from math import radians, sin, cos, sqrt, atan2
+from dotenv import load_dotenv
+import os
 
+load_dotenv()  
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
 def get_user_id_from_token(token : str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -116,3 +123,17 @@ def add_stop_to_route(details, db: Session):
     db.add(link)
     db.commit()
     return {"msg": "Stop added to route"}
+
+
+
+def haversine(coord1, coord2):
+    R = 6371000  # meters
+    lat1, lon1 = radians(coord1[1]), radians(coord1[0])
+    lat2, lon2 = radians(coord2[1]), radians(coord2[0])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
+    return R * 2 * atan2(sqrt(a), sqrt(1-a))
+
+def is_stop_on_route(stop_coords, geometry, threshold_meters=100):
+    return any(haversine(stop_coords, point) <= threshold_meters for point in geometry)

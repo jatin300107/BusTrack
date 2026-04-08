@@ -1,8 +1,8 @@
-from sqlmodel import SQLModel, Relationship, Field
+from sqlmodel import SQLModel, Relationship, Field ,  Column
 from typing import Optional, List
 from datetime import datetime, time
 
-
+from json import JSON
 # ── Link tables ──────────────────────────────────────────
 
 class RouteStopLink(SQLModel, table=True):
@@ -45,8 +45,7 @@ class Stop(SQLModel, table=True):
 class Route(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    start_point: str
-    end_point: str
+    geometry : Optional[List[List[float]]] = Field(default=None, sa_column=Column(JSON))
     total_distance: float
     stops: List["Stop"] = Relationship(back_populates="routes", link_model=RouteStopLink)
 
