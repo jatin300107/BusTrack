@@ -31,11 +31,11 @@ def get_user_details(user_id, db : Session):
 
 bearer_scheme = HTTPBearer()
 
-def require_admin(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme), db: Session = Depends(get_session)):
+def required_role(role , credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme), db: Session = Depends(get_session) ):
     token = credentials.credentials
     user_id = get_user_id_from_token(token)
     user_details = get_user_details(user_id , db)
-    if user_details["role"] != "admin":
+    if user_details["role"] != role:
         raise HTTPException(status_code=403 , detail = "Invalid role")
     else: 
         return user_details
@@ -102,7 +102,7 @@ def get_route_list(db : Session):
     routes = db.exec(select(Route)).all()
     if not routes:
             raise HTTPException(status_code=404 , detail= " No Routes found")
-    return routes
+    return {"routes:" : routes }
     
 
 def schedule_options(db : Session):
