@@ -9,7 +9,7 @@ load_dotenv()
 
 print(os.getenv("API_KEY")) 
 API_KEY = os.getenv("API_KEY")
- # debug this
+
 if not API_KEY:
     raise ValueError("Api key not found")
 client = openrouteservice.Client(key=API_KEY)
@@ -19,7 +19,7 @@ def get_route_properties(start, end, preference="recommended"):
         coordinates=[start, end],
         profile="driving-car",
         format="geojson",
-        preference=preference        # <-- add this
+        preference=preference
     )
     
     feature = route["features"][0]
@@ -28,14 +28,27 @@ def get_route_properties(start, end, preference="recommended"):
     
     return distance, geometry
 
-
-def get_route_geometry(start,end):
+def get_distance(start, end, preference="recommended"):
+    route = client.directions(
+        coordinates=[start, end],
+        profile="driving-car",
+        format="geojson",
+        preference=preference
+    )
+    
+    feature = route["features"][0]
+    distance = feature["properties"]["summary"]["distance"]
+    geometry = feature["geometry"]["coordinates"]
+    
+    return distance
+def get_route_geometry(start,end , preference="recommended"):
 
 
     route = client.directions(
         coordinates=[start , end],
         profile="driving-car",
-        format="geojson"
+        format="geojson" ,
+        preference="recommended"
     )
     route_geometry= route["features"][0]["geometry"]["coordinates"]
     return route_geometry
