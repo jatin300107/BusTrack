@@ -1,10 +1,18 @@
-from bustrack.config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
+import os
 from jose import jwt 
 from fastapi import HTTPException
 from passlib.hash import bcrypt
 from sqlmodel import Session, select
 from bustrack.model import Role, User
 from datetime import datetime , timedelta
+
+from dotenv import load_dotenv
+
+
+load_dotenv()
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
 def verify_register_details(user,db : Session):
     existing = db.exec(select(User).where(User.email == user.email)).first()
     if existing:
@@ -36,6 +44,6 @@ def verify_login_details(username,password, db : Session):
 
 def create_jwt_token(user : User):
     to_encode = {"user_id" : user.id , "username" : user.username , "role" : user.role.name}
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + timedelta(minutes=int(ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

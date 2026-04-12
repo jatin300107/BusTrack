@@ -31,14 +31,18 @@ def get_user_details(user_id, db : Session):
 
 bearer_scheme = HTTPBearer()
 
-def required_role(role , credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme), db: Session = Depends(get_session) ):
-    token = credentials.credentials
-    user_id = get_user_id_from_token(token)
-    user_details = get_user_details(user_id , db)
-    if user_details["role"] != role:
-        raise HTTPException(status_code=403 , detail = "Invalid role")
-    else: 
+def required_role(role: str):
+    def dependency(
+        credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+        db: Session = Depends(get_session)
+    ):
+        token = credentials.credentials
+        user_id = get_user_id_from_token(token)
+        user_details = get_user_details(user_id, db)
+        if user_details["role"] != role:
+            raise HTTPException(status_code=403, detail="Invalid role")
         return user_details
+    return dependency
 
 def list_of_all_buses(db):
     buses = db.exec(select(Bus)).all()

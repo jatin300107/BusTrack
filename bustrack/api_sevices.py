@@ -3,11 +3,11 @@ import json
 from pydantic_settings import BaseSettings
 import os
 from dotenv import load_dotenv
-import os
+
 
 load_dotenv()
 
-print(os.getenv("API_KEY")) 
+ 
 API_KEY = os.getenv("API_KEY")
 
 if not API_KEY:

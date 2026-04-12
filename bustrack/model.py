@@ -1,9 +1,8 @@
-from sqlmodel import SQLModel, Relationship, Field ,  Column
+from sqlmodel import SQLModel, Relationship, Field ,  Column , JSON
 from typing import Optional, List
 from datetime import datetime, time
 
-from json import JSON
-# ── Link tables ──────────────────────────────────────────
+
 
 class RouteStopLink(SQLModel, table=True):
     route_id: Optional[int] = Field(default=None, foreign_key="route.id", primary_key=True)

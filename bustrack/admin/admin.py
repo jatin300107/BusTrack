@@ -6,8 +6,8 @@ from pydantic import BaseModel
 from sqlmodel import Session , select 
 from typing import Optional, List
 from create_db import get_session
-from api_sevices import get_route_properties, get_coordinates
-from bustrack.model import Route , RouteStopLink , Stop
+from bustrack.api_sevices import get_route_properties, get_coordinates
+from bustrack.model import Route , RouteStopLink , Stop , Bus
 admin = APIRouter()
 
 @admin.get('/admin/dashboard')
@@ -15,6 +15,16 @@ def admin_dashboard(user = Depends(required_role(role="admin")) , db : Session =
     
     
         return {"msg" : f"Welcome {user['username']} to the admin dashboard!"}
+class Bus_details(BaseModel):
+       bus_code : str
+       avg_speed : float
+
+@admin.post('/admin/add-bus')
+def add_bus(bus_detail : Bus_details , user = Depends(required_role("admin")) ,db : Session = Depends(get_session)):
+       bus = Bus(bus_code=bus_detail.bus_code , avg_speed=bus_detail.avg_speed)
+       db.add(bus)
+       db.commit()
+       return {"msg" : "Bus added succesfully"}
 
 @admin.get('/admin/list-of-buses')
 def get_list_of_buses(user = Depends(required_role("admin")) ,db : Session = Depends(get_session)):
@@ -36,16 +46,16 @@ class ScheduleDetails(BaseModel):
         end_time : datetime
 
 @admin.post('/admin/create-schedule')
-def create_schedule(schedule_details : ScheduleDetails , user = Depends() ,  db : Session = Depends(get_session)):
+def create_schedule(schedule_details : ScheduleDetails , user = Depends(required_role("admin")) ,  db : Session = Depends(get_session)):
         save_schedule(schedule= schedule_details , db = db)
         return {"msg" : "schedule created succesfully "}
 
 @admin.get('/admin/schedule-options')
-def get_schedule_options(user = Depends() ,  db : Session = Depends(get_session)):
+def get_schedule_options(user = Depends(required_role("admin")) ,  db : Session = Depends(get_session)):
         return schedule_options(db)
 
 @admin.get('/admin/get-routes')
-def get_routes(user = Depends() ,  db : Session = Depends(get_session)):
+def get_routes(user = Depends(required_role("admin")) ,  db : Session = Depends(get_session)):
         return {"roues" : get_route_list(db)}
 
 class AddStop(BaseModel):

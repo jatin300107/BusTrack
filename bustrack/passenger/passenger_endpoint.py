@@ -6,7 +6,7 @@ from bustrack.model import Route , Bus , LocationUpdate , Favourite
 from pydantic import BaseModel
 
 from bustrack.passenger.dead_reckoning import get_waiting_time , distance_from_route
-from api_sevices import get_coordinates
+from bustrack.api_sevices import get_coordinates
 passenger= APIRouter()
 
 @passenger.get('/dashboard')
