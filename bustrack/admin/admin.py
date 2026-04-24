@@ -56,14 +56,14 @@ def get_schedule_options(user = Depends(required_role("admin")) ,  db : Session 
 
 @admin.get('/admin/get-routes')
 def get_routes(user = Depends(required_role("admin")) ,  db : Session = Depends(get_session)):
-        return {"roues" : get_route_list(db)}
+        return get_route_list(db)
 
 class AddStop(BaseModel):
     route_id: int
     stop_id: int
     order_index: int
 
-@admin.post('/admin/add-stop')
+@admin.post('/admin/add-stop-to-route')
 def add_stop(details: AddStop, user=Depends(required_role("admin")), db: Session=Depends(get_session)):
     return add_stop_to_route(details=details, db=db)
 
@@ -92,7 +92,7 @@ def add_route(route_details : Route_Details , user=Depends(required_role("admin"
         db.commit()
         db.refresh(route)
         route_stop_list = []
-        for stop_name in route_details.stops:
+        for i , stop_name in enumerate(route_details.stops):
                stop = db.exec(select(Stop).where(Stop.name == stop_name)).first()
                if not stop:
                       raise HTTPException(status_code=404, detail=f"Invalid stop name: {stop_name}")
@@ -101,11 +101,35 @@ def add_route(route_details : Route_Details , user=Depends(required_role("admin"
                if not is_stop_on_route(stop_coords, geometry):
                         raise HTTPException(status_code=400, detail=f"Stop '{stop_name}' is not on this route")
 
-               route_stop = RouteStopLink(route_id = route.id , stop_id = stop.id)
+               route_stop = RouteStopLink(route_id = route.id , stop_id = stop.id, order_index = i)
                route_stop_list.append(route_stop)
         db.add_all(route_stop_list)
         db.commit()
         return {"msg"  : "Route created successfully"}
+class Stop_Details(BaseModel) :
+       name :str
+       address : str
+
         
-        
-    
+@admin.post('/admin/create-stop')
+def create_stop(stop_details : Stop_Details , user = Depends(required_role("admin")), db : Session = Depends(get_session)):
+        stop_coordinates = get_coordinates(address=stop_details.address)
+        if  not stop_coordinates:
+               raise HTTPException(status_code=404 , detail= "stop cordinates not found")
+        stop = Stop(name=stop_details.name , latitude= stop_coordinates[1] , longitude=stop_coordinates[0])
+        db.add(stop)
+        db.commit()
+        return {"msg" : "Stop created successfully"}
+class Delete_route(BaseModel):
+       route_id : int
+@admin.post('/admin/delete-route')
+def delete_route(details : Delete_route , user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
+       route = db.get(Route , details.route_id)
+       db.delete(route)
+       db.commit()
+       return {"msg" : "route deleted route successfully"}
+
+@admin.get('/admin/get-all-stops')
+def get_all_stops(user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
+       stops = db.exec(select(Stop)).all()
+       return {"stops" : stops}

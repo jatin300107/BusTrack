@@ -46,7 +46,7 @@ def get_waiting_time(db: Session, location_update, passenger_location, route):
     if bus_index >= passenger_index:
         return None  #
     time_diff_seconds = (datetime.utcnow() - location_update.timestamp).total_seconds()
-    distance_covered = location_update.speed * time_diff_seconds
+    distance_covered = (location_update.speed / 3.6) * time_diff_seconds
 
     current_bus_coord = route_geometry[-1]  # fallback
     d = 0
@@ -61,7 +61,7 @@ def get_waiting_time(db: Session, location_update, passenger_location, route):
 
     distance_to_travel = get_distance(start=current_bus_coord, end=passenger_coordinates)
 
-    waiting_time_in_mins = (distance_to_travel / location_update.speed) / 60
+    waiting_time_in_mins = (distance_to_travel / 1000 / location_update.speed) * 60
     return waiting_time_in_mins
 
 def distance_from_route(route_coords, passenger_lat, passenger_lon):

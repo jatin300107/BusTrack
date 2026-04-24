@@ -17,7 +17,9 @@ def passenger_dashboard(user = Depends(required_role(role="passenger")) , db : S
 
 @passenger.get('/routes')
 def get_routes(user = Depends(required_role(role="passenger")) , db : Session = Depends(get_session)):
-        return get_route_list(db)
+        route_list =  get_route_list(db)
+        route_names = [route.name for route in route_list]
+        return {"routes" : route_names}
 
 @passenger.get('/routes/{id}/stop')
 def get_stops(route_id , user = Depends(required_role(role="passenger")) , db : Session = Depends(get_session)):
@@ -78,7 +80,8 @@ def list_favourites(user=Depends(required_role(role="passenger")), db: Session =
         return {"message": "No favourites yet"}
     
     routes = [db.get(Route, fav.route_id) for fav in favs]
-    return {"favourites": routes}
+    route_names = [route.name for route in routes if route]
+    return {"favourites": routes_names}
 
 
 
