@@ -16,9 +16,9 @@ if not API_KEY:
     raise ValueError("Api key not found")
 client = openrouteservice.Client(key=API_KEY)
 
-def get_route_properties(start, end, preference="recommended"):
+def get_route_properties(coords, preference="recommended"):
     route = client.directions(
-        coordinates=[start, end],
+        coordinates=coords,
         profile="driving-car",
         format="geojson",
         preference=preference
@@ -43,11 +43,11 @@ def get_distance(start, end, preference="recommended"):
     geometry = feature["geometry"]["coordinates"]
     
     return distance
-def get_route_geometry(start,end , preference="recommended"):
+def get_route_geometry(coords , preference="recommended"):
 
 
     route = client.directions(
-        coordinates=[start , end],
+        coordinates=coords,
         profile="driving-car",
         format="geojson" ,
         preference="recommended"

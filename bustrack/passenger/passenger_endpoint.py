@@ -82,7 +82,7 @@ def list_favourites(user=Depends(required_role(role="passenger")), db: Session =
     
     routes = [db.get(Route, fav.route_id) for fav in favs]
     route_names = [route.name for route in routes if route]
-    return {"favourites": routes_names}
+    return {"favourites": route_names}
 
 
 

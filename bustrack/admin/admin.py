@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends , HTTPException
 from datetime import datetime
 from .utils import  required_role , remove_bus , list_of_all_buses , save_schedule , schedule_options , get_route_list , add_stop_to_route , is_stop_on_route
-from bustrack.model import User
+from bustrack.model import User , Schedule
 from pydantic import BaseModel 
 from sqlmodel import Session , select 
 from typing import Optional, List
@@ -79,14 +79,18 @@ def get_registered_user(user=Depends(required_role("admin")),db: Session=Depends
        return  {"List of users" : users_list}
 class Route_Details(BaseModel):
        name : str
-       start_point : str
-       end_point : str
+       
        stops : Optional[List]
 @admin.post('/admin/add-route')
 def add_route(route_details : Route_Details , user=Depends(required_role("admin")),db: Session=Depends(get_session)):
-        start_coordinates = get_coordinates(address=route_details.start_point)
-        end_coordinates = get_coordinates(address=route_details.end_point)
-        distance , geometry = get_route_properties( start=start_coordinates  , end= end_coordinates)
+        stops_coords = []
+        for stop_name in route_details.stops:
+               stop = db.exec(select(Stop).where(Stop.name == stop_name)).first()
+               if stop is None:
+                      raise HTTPException(status_code=404, detail=f"Stop '{stop_name}' not found")
+               stops_coords.append([stop.longitude, stop.latitude])
+               
+        distance , geometry = get_route_properties(stops_coords)
         route = Route(name = route_details.name , total_distance = distance , geometry = geometry)
         db.add(route)
         db.commit()
@@ -98,6 +102,7 @@ def add_route(route_details : Route_Details , user=Depends(required_role("admin"
                       raise HTTPException(status_code=404, detail=f"Invalid stop name: {stop_name}")
     
                stop_coords = [stop.longitude, stop.latitude]  # [lon, lat]
+               
                if not is_stop_on_route(stop_coords, geometry):
                         raise HTTPException(status_code=400, detail=f"Stop '{stop_name}' is not on this route")
 
@@ -120,11 +125,10 @@ def create_stop(stop_details : Stop_Details , user = Depends(required_role("admi
         db.add(stop)
         db.commit()
         return {"msg" : "Stop created successfully"}
-class Delete_route(BaseModel):
-       route_id : int
-@admin.post('/admin/delete-route')
-def delete_route(details : Delete_route , user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
-       route = db.get(Route , details.route_id)
+
+@admin.delete('/admin/{route_id}/delete-route')
+def delete_route(route_id :int , user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
+       route = db.get(Route , route_id)
        db.delete(route)
        db.commit()
        return {"msg" : "route deleted route successfully"}
@@ -133,3 +137,15 @@ def delete_route(details : Delete_route , user = Depends(required_role("admin"))
 def get_all_stops(user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
        stops = db.exec(select(Stop)).all()
        return {"stops" : stops}
+
+@admin.delete('/admin/{schedule_id}/delete-schedule')
+def delete_schedule(schedule_id : int , user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
+       schedule = db.get(Schedule , schedule_id)
+       db.delete(schedule)
+       db.commit()
+       return {"msg" : "Schedule deleted successfully"}
+
+@admin.get('/admin/get-all-schedules')
+def get_all_schedules(user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
+       schedules = db.exec(select(Schedule)).all()
+       return {"schedules" : schedules}
