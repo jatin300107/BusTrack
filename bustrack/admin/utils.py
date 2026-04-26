@@ -102,12 +102,11 @@ def get_buses_list(db : Session):
             raise HTTPException(status_code=404 , detail= " No buses found")
     return buses
 
-def get_route_list(db : Session):
+def get_route_list(db: Session):
     routes = db.exec(select(Route)).all()
     if not routes:
-            raise HTTPException(status_code=404 , detail= " No Routes found")
-    return {"routes:" : routes }
-    
+        raise HTTPException(status_code=404, detail="No Routes found")
+    return {"routes": [{"id": r.id, "name": r.name, "total_distance": r.total_distance} for r in routes]}
 
 def schedule_options(db : Session):
     return {"drivers" : get_drivers_list(db) ,

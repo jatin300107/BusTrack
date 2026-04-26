@@ -22,27 +22,39 @@ def haversine(coord1, coord2):
 
 def closest_coordinate(route_coords , coords):
     min_dist = float("inf")
-    nearest = None
-    for route_coord in route_coords:
+    nearest_coords = None
+    index = None
+    for i, route_coord in enumerate(route_coords):
         d = haversine(route_coord , coords)
+
+        
         if d < min_dist:
             min_dist = d
-            nearest = route_coord
-    return nearest
+            nearest_coords = route_coord
+            index = 1
+    return nearest_coords , index
 
+def distance_from_route(route_coords, passenger_lat, passenger_lon):
+    nearest_coord , index = closest_coordinate(route_coords, [passenger_lon, passenger_lat])
+    return haversine([passenger_lon, passenger_lat], nearest_coord)
+    
 
 def get_waiting_time(db: Session, location_update, passenger_location, route):
     passenger_coordinates = get_coordinates(address=passenger_location)
+    
     route_geometry = route.geometry
 
     bus_location = [location_update.longitude, location_update.latitude]
+    
+    nearest_bus_coord , bus_index = closest_coordinate(route_geometry, bus_location)
+    
+    if  bus_index is None:
+        raise ValueError("Bus index error")
 
-    nearest_bus_coord = closest_coordinate(route_geometry, bus_location)
-    bus_index = route_geometry.index(nearest_bus_coord)
-
-    nearest_passenger_coord = closest_coordinate(route_geometry, passenger_coordinates)
-    passenger_index = route_geometry.index(nearest_passenger_coord)
-
+    nearest_passenger_coord , passenger_index = closest_coordinate(route_geometry, passenger_coordinates)
+    
+    if passenger_index is None:
+        raise ValueError("Passenger index error")
     if bus_index >= passenger_index:
         return None  #
     time_diff_seconds = (datetime.utcnow() - location_update.timestamp).total_seconds()
@@ -54,17 +66,14 @@ def get_waiting_time(db: Session, location_update, passenger_location, route):
         d += haversine(route_geometry[i], route_geometry[i + 1])
         if d > distance_covered:
             current_bus_coord = route_geometry[i]
+            current_bus_index = i
             break
-    current_bus_index = route_geometry.index(current_bus_coord)
+    
     if current_bus_index >= passenger_index:
         return None  
 
-    distance_to_travel = get_distance(start=current_bus_coord, end=passenger_coordinates)
+    distance_to_travel = get_distance(start=current_bus_coord, end=nearest_passenger_coord)
 
     waiting_time_in_mins = (distance_to_travel / 1000 / location_update.speed) * 60
     return waiting_time_in_mins
 
-def distance_from_route(route_coords, passenger_lat, passenger_lon):
-    nearest_coord = closest_coordinate(route_coords, [passenger_lon, passenger_lat])
-    return haversine([passenger_lon, passenger_lat], nearest_coord)
-    

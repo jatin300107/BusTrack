@@ -3,12 +3,14 @@ import json
 from pydantic_settings import BaseSettings
 import os
 from dotenv import load_dotenv
+import requests
 
 
 load_dotenv()
 
  
 API_KEY = os.getenv("API_KEY")
+GEOAPIFY_API_KEY = os.getenv("GEOAPIFY_API_KEY")
 
 if not API_KEY:
     raise ValueError("Api key not found")
@@ -52,9 +54,15 @@ def get_route_geometry(start,end , preference="recommended"):
     )
     route_geometry= route["features"][0]["geometry"]["coordinates"]
     return route_geometry
+from geopy.geocoders import Nominatim
+
 def get_coordinates(address):
-    address = client.pelias_search(text=address)["features"][0]["geometry"]["coordinates"]
-    return address
+    res = requests.get(
+    "https://api.geoapify.com/v1/geocode/search",
+    params={"text": address, "apiKey": os.getenv("GEOAPIFY_API_KEY"), "lang": "en"}
+    ).json()
+    coords = res["features"][0]["geometry"]["coordinates"]  # already [lng, lat]
+    return coords
 
 def get_address(coordinates):
     result = client.pelias_reverse(coordinates)["features"][0]["geometry"]["label"]

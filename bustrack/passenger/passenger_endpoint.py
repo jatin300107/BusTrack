@@ -2,7 +2,7 @@ from fastapi import APIRouter , Depends , HTTPException
 from create_db import get_session
 from sqlmodel import Session , select 
 from bustrack.admin.utils import required_role , get_route_list
-from bustrack.model import Route , Bus , LocationUpdate , Favourite
+from bustrack.model import Route , Bus , LocationUpdate , Favourite , RouteStopLink , Schedule
 from pydantic import BaseModel
 
 from bustrack.passenger.dead_reckoning import get_waiting_time , distance_from_route
@@ -18,16 +18,17 @@ def passenger_dashboard(user = Depends(required_role(role="passenger")) , db : S
 @passenger.get('/routes')
 def get_routes(user = Depends(required_role(role="passenger")) , db : Session = Depends(get_session)):
         route_list =  get_route_list(db)
-        route_names = [route.name for route in route_list]
-        return {"routes" : route_names}
+        
+        return {"routes" : route_list} 
 
 @passenger.get('/routes/{id}/stop')
 def get_stops(route_id , user = Depends(required_role(role="passenger")) , db : Session = Depends(get_session)):
-        route = db.get(Route , route_id)
+        route = db.get(Route , route_id) 
         if not route:
                 raise HTTPException(status_code=404 , detail="Route not found")
-        stops = route.stops.name
-        return {"stops" : stops}
+        stops = route.stops
+        stops_name = [{"name" : stop.name , "id" : stop.id} for stop in stops]
+        return {"stops" : stops_name}
 
 class Current_location(BaseModel):
         current_location : str
@@ -35,10 +36,10 @@ class Current_location(BaseModel):
 @passenger.post('/buses/{bus-id}/location')
 def get_bus(bus_id: int, location: Current_location, user=Depends(required_role(role="passenger")), db: Session = Depends(get_session)):
     
-    location_update = db.exec(select(LocationUpdate).where(LocationUpdate.bus_id == bus_id)).first()
-    route = db.exec(select(Route).where(Route.id == location_update.route_id)).first()
+    schedule = db.exec(select(Schedule).where(Schedule.bus_id == bus_id)).first()
+    route = db.exec(select(Route).where(Route.id == schedule.route_id)).first()
+    location_update = db.exec(select(LocationUpdate).where(LocationUpdate.schedule_id == schedule.id)).first()
 
-    
     passenger_coordinates = get_coordinates(address=location.current_location)
     dist_from_route = distance_from_route(route.geometry, passenger_coordinates[1], passenger_coordinates[0])
 
@@ -58,7 +59,7 @@ def get_bus(bus_id: int, location: Current_location, user=Depends(required_role(
 
 @passenger.post('/favourites/{route_id}')
 def add_favourite(route_id: int, user=Depends(required_role(role="passenger")), db: Session = Depends(get_session)):
-    route = db.get(Route, route_id)
+    route = db.get(Route , route_id)
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
