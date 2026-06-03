@@ -47,9 +47,14 @@ class Current_location(BaseModel):
 def get_bus(bus_id: int, location: Current_location, user=Depends(required_role(role="passenger")), db: Session = Depends(get_session)):
     
     schedule = db.exec(select(Schedule).where(Schedule.bus_id == bus_id)).first()
+    if not schedule:
+         raise HTTPException(status_code= 404 , detail="No active schedule found on this bus")
     route = db.exec(select(Route).where(Route.id == schedule.route_id)).first()
+    if not route:
+         raise HTTPException(status_code=404 , detail="Route not found for this bus")
     location_update = db.exec(select(LocationUpdate).where(LocationUpdate.schedule_id == schedule.id)).first()
-
+    if not location_update:
+         raise HTTPException(status_code=404 , detail = "No location update found for this bus")
     passenger_coordinates = get_coordinates(address=location.current_location)
     dist_from_route = distance_from_route(route.geometry, passenger_coordinates[1], passenger_coordinates[0])
 
@@ -114,6 +119,6 @@ def get_driver_location(route_id: int , db: Session = Depends(get_session)):
     bus_id = schedule.bus_id
     location_update = db.exec(select(LocationUpdate).where(LocationUpdate.bus_id == bus_id)).first()
     if not location_update:
-         raise HTTPException(status_code = 404, details = "Location update not found")
+         raise HTTPException(status_code = 404, detail = "Location update not found")
     return {"latitude": location_update.latitude, "longitude": location_update.longitude}
     
