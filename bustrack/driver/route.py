@@ -28,7 +28,7 @@ def update_location( info : Bus_info ,user = Depends(required_role("driver")) , 
     
     location_update = db.exec(select(LocationUpdate).where(LocationUpdate.schedule_id==schedule.id)).first()
     if not location_update:
-        location_update = LocationUpdate(schedule_id = schedule.id , driver_id = user_id , bus_id = schedule.bus_id , route_id = schedule.route_id , timestamp = datetime.utcnow() , longitude = 0.0, latitude = 0.0 , speed = info.avg_speed)
+        location_update = LocationUpdate(schedule_id = schedule.id , driver_id = user_id , bus_id = schedule.bus_id ,  timestamp = datetime.utcnow() , longitude = 0.0, latitude = 0.0 , speed = info.avg_speed)
         db.add(location_update)
         db.commit()
         db.refresh(location_update)
