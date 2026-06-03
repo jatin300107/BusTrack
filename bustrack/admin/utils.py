@@ -27,7 +27,7 @@ def get_user_details(user_id, db : Session):
     user = db.exec(select(User).where(User.id==user_id)).first()
     if user is None:
         raise HTTPException(status_code=404, detail = "User not found")
-    return {"username" : user.username , "role" : user.role.name}
+    return {"id" : user_id,"username" : user.username , "role" : user.role.name}
 
 bearer_scheme = HTTPBearer()
 
@@ -91,22 +91,21 @@ def get_drivers_list(db : Session):
     if not driver_role:
         raise HTTPException(status_code=404, detail="Driver role not found")
     drivers = db.exec(select(User).where(User.role_id == driver_role.id)).all()
-    if not drivers:
-        raise HTTPException(status_code=404, detail="No drivers found")
+    
     return drivers
 
 
 def get_buses_list(db : Session):
     buses = db.exec(select(Bus)).all()
     if not buses:
-            raise HTTPException(status_code=404 , detail= " No buses found")
+        return {"buses": []}
     return buses
 
 def get_route_list(db: Session):
     routes = db.exec(select(Route)).all()
     if not routes:
-        raise HTTPException(status_code=404, detail="No Routes found")
-    return {"routes": [{"id": r.id, "name": r.name, "total_distance": r.total_distance} for r in routes]}
+        return {"routes": []}
+    return {"routes": [{"id": r.id, "name": r.name, "total_distance": r.total_distance, "geometry": r.geometry} for r in routes]}
 
 def schedule_options(db : Session):
     return {"drivers" : get_drivers_list(db) ,
