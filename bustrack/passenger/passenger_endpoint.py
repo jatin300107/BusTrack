@@ -43,7 +43,7 @@ def get_active_bus(route_id: int, user=Depends(required_role(role="passenger")),
 class Current_location(BaseModel):
         current_location : str
 
-@passenger.post('/buses/{bus-id}/location')
+@passenger.post('/buses/{bus_id}/location')
 def get_bus(bus_id: int, location: Current_location, user=Depends(required_role(role="passenger")), db: Session = Depends(get_session)):
     
     schedule = db.exec(select(Schedule).where(Schedule.bus_id == bus_id)).first()
@@ -109,6 +109,8 @@ def delete_favourite(route_id: int, user=Depends(required_role(role="passenger")
 @passenger.get('/driver-location/{route_id}')
 def get_driver_location(route_id: int , db: Session = Depends(get_session)):
     schedule = db.exec(select(Schedule).where(Schedule.route_id==route_id)).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="No active schedule found for this route")
     bus_id = schedule.bus_id
     location_update = db.exec(select(LocationUpdate).where(LocationUpdate.bus_id == bus_id)).first()
     if not location_update:

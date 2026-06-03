@@ -31,7 +31,7 @@ def get_list_of_buses(user = Depends(required_role("admin")) ,db : Session = Dep
         bus_list = list_of_all_buses(db)
         return {"bus_list" : bus_list }
 
-@admin.delete('/admin/remove-bus/{bus-id}')
+@admin.delete('/admin/remove-bus/{bus_id}')
 def remove_bus_from_system(bus_id : int , user = Depends(required_role("admin")) , db : Session = Depends(get_session)):
         error = remove_bus(bus_id , db)
         if error:
@@ -73,10 +73,10 @@ def add_stop(details: AddStop, user=Depends(required_role("admin")), db: Session
 def get_registered_user(user=Depends(required_role("admin")),db: Session=Depends(get_session)):
        users = db.exec(select(User)).all() 
        users_list = []
-       for user in users:
-              users_list.append({user.username : user.role.name})
+       for u in users:
+              users_list.append({"username": u.username, "email": u.email, "role": u.role.name})
         
-       return  {"List of users" : users_list}
+       return  {"users" : users_list}
 class Route_Details(BaseModel):
        name : str
        
