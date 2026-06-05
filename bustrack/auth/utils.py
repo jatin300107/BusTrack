@@ -16,10 +16,10 @@ ALGORITHM = os.getenv("ALGORITHM")
 def verify_register_details(user,db : Session):
     existing = db.exec(select(User).where(User.email == user.email)).first()
     if existing:
-        raise HTTPException(status_code=400,details="User already exists with this email")
+        raise HTTPException(status_code=400,detail="User already exists with this email")
     existing = db.exec(select(User).where(User.username==user.username)).first()
     if existing:
-        raise HTTPException(status_code=400,details="Username not available")
+        raise HTTPException(status_code=400,detail="Username not available")
     return None
 
 def create_password_hash(password : str):
@@ -28,7 +28,7 @@ def create_password_hash(password : str):
 def assign_role(role , db : Session):
     role = db.exec(select(Role).where(Role.name == role)).first()
     if role is None:
-        raise HTTPException(status_code=400,details="Invalid role")
+        raise HTTPException(status_code=400,detail="Invalid role")
     return role
     
 def verify_password(plain_password,hashed_password):

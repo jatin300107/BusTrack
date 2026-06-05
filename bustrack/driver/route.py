@@ -34,6 +34,7 @@ def update_location( info : Bus_info ,user = Depends(required_role("driver")) , 
         db.refresh(location_update)
 
     location_update.speed = info.avg_speed
+    location_update.bus_id = schedule.bus_id
     coords = get_coordinates(info.current_location)
     location_update.longitude = coords[0]
     location_update.latitude = coords[1]
