@@ -1,1 +1,1 @@
-const API_BASE = "https://bustrack-bbdv.onrender.com/";
+const API_BASE = "https://bustrack-bbdv.onrender.com";
