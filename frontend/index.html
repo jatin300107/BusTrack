@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusTrack — Real-time Bus Tracking</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .auth-page {
+            background: var(--bg);
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-page::before {
+            content: '';
+            position: absolute;
+            width: 400px; height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(79,142,247,0.08), transparent 70%);
+            top: -100px; right: -100px;
+            pointer-events: none;
+        }
+        .auth-page::after {
+            content: '';
+            position: absolute;
+            width: 300px; height: 300px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(167,139,250,0.06), transparent 70%);
+            bottom: -80px; left: -80px;
+            pointer-events: none;
+        }
+        .auth-features {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .auth-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .auth-feature span:first-child { font-size: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-container">
+            <div class="auth-brand">
+                <span class="nav-logo">🚌</span>
+                <span class="nav-title">BusTrack</span>
+                <p>Real-time bus tracking for your city</p>
+            </div>
+
+            <div class="auth-features">
+                <div class="auth-feature"><span>📍</span><span>Live ETA</span></div>
+                <div class="auth-feature"><span>🗺️</span><span>Route Maps</span></div>
+                <div class="auth-feature"><span>⭐</span><span>Favourites</span></div>
+                <div class="auth-feature"><span>🔔</span><span>Real-time</span></div>
+            </div>
+
+            <div class="auth-card">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" onclick="switchTab('login')">Login</button>
+                    <button class="auth-tab" onclick="switchTab('register')">Register</button>
+                </div>
+
+                <form id="login-form" class="auth-form active" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" id="login-username" class="form-input" placeholder="Enter username" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="login-password" class="form-input" placeholder="Enter password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" id="login-btn">Login</button>
+                </form>
+
+                <form id="register-form" class="auth-form" onsubmit="handleRegister(event)">
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" id="reg-username" class="form-input" placeholder="Choose a username" required minlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="reg-email" class="form-input" placeholder="your@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="reg-password" class="form-input" placeholder="Min 6 characters" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Role</label>
+                        <select id="reg-role" class="form-select" required>
+                            <option value="passenger">Passenger</option>
+                            <option value="driver">Driver</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block" id="register-btn">Create Account</button>
+                </form>
+            </div>
+
+            <p style="text-align:center;margin-top:1rem;font-size:0.8rem;color:var(--text-muted)">
+                Admin? <a href="#" onclick="showAdminLogin()">Login here</a>
+            </p>
+        </div>
+    </div>
+
+    <!-- Admin Login Modal -->
+    <div class="modal-overlay" id="admin-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">Admin Login</span>
+                <button class="modal-close" onclick="closeAdminModal()">✕</button>
+            </div>
+            <form onsubmit="handleAdminLogin(event)">
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="admin-username" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="admin-password" class="form-input" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeAdminModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="admin-login-btn">Login as Admin</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="utils.js"></script>
+    <script>
+        if (getToken()) {
+            const role = getUserRole();
+            if (role) redirectByRole(role);
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            if (tab === 'login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            }
+        }
+
+        function showAdminLogin() {
+            document.getElementById('admin-modal').classList.add('active');
+        }
+        function closeAdminModal() {
+            document.getElementById('admin-modal').classList.remove('active');
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('login-btn');
+            const usernameInput = document.getElementById('login-username');
+            const passwordInput = document.getElementById('login-password');
+            if (!validateField(usernameInput, { required: true, label: 'Username' }) ||
+                !validateField(passwordInput, { required: true, label: 'Password' })) return;
+            try {
+                setButtonLoading(btn, true);
+                const data = await apiFetch('/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ username: usernameInput.value, password: passwordInput.value })
+                });
+                showToast(data.msg, 'success');
+                setToken(data.access_token);
+                setTimeout(() => redirectByRole(getUserRole()), 800);
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function handleAdminLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('admin-login-btn');
+            try {
+                setButtonLoading(btn, true);
+                const data = await apiFetch('/login', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: document.getElementById('admin-username').value,
+                        password: document.getElementById('admin-password').value
+                    })
+                });
+                setToken(data.access_token);
+                const role = getUserRole();
+                if (role !== 'admin') {
+                    removeToken();
+                    showToast('Not an admin account', 'error');
+                    return;
+                }
+                showToast('Welcome, Admin!', 'success');
+                setTimeout(() => redirectByRole(role), 800);
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const btn = document.getElementById('register-btn');
+            const u = document.getElementById('reg-username');
+            const em = document.getElementById('reg-email');
+            const p = document.getElementById('reg-password');
+            if (!validateField(u, { required: true, minLength: 3, label: 'Username' }) ||
+                !validateField(em, { required: true, email: true, label: 'Email' }) ||
+                !validateField(p, { required: true, minLength: 6, label: 'Password' })) return;
+            try {
+                setButtonLoading(btn, true);
+                await apiFetch('/register', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        username: u.value, email: em.value,
+                        password: p.value, role: document.getElementById('reg-role').value
+                    })
+                });
+                showToast('Account created! Please login.', 'success');
+                switchTab('login');
+                document.getElementById('login-username').value = u.value;
+                document.getElementById('register-form').reset();
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                setButtonLoading(btn, false);
+            }
+        }
+    </script>
+</body>
+</html>

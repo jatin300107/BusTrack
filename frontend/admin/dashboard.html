@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="admin-layout">
+    <div id="admin-sidebar" class="sidebar"></div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <main class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <div class="nav-user"><span>👤</span> <span id="admin-username">Admin</span></div>
+        </header>
+
+        <div class="welcome-card">
+            <h1 id="welcome-title">Welcome back!</h1>
+            <p>Here's what's happening in the BusTrack system right now.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">🚌</div>
+                <div class="stat-value" id="stat-buses">—</div>
+                <div class="stat-label">Total Buses</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🗺️</div>
+                <div class="stat-value" id="stat-routes">—</div>
+                <div class="stat-label">Total Routes</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📅</div>
+                <div class="stat-value" id="stat-schedules">—</div>
+                <div class="stat-label">Schedules</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">👥</div>
+                <div class="stat-value" id="stat-users">—</div>
+                <div class="stat-label">Registered Users</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-title" style="margin-bottom:1rem">Quick Actions</div>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap">
+                <a href="buses.html" class="btn btn-outline">🚌 Add Bus</a>
+                <a href="routes.html" class="btn btn-outline">🗺️ Add Route</a>
+                <a href="schedules.html" class="btn btn-outline">📅 Create Schedule</a>
+                <a href="users.html" class="btn btn-outline">👥 View Users</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <div class="card-title">Recent Schedules</div>
+                <a href="schedules.html" class="btn btn-sm btn-outline">View All</a>
+            </div>
+            <div id="recent-schedules-container">
+                <div class="empty-state"><div class="empty-icon">📅</div><p class="empty-text">Loading...</p></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    if (guardPage(['admin'])) {
+        renderAdminSidebar('dashboard');
+        const username = getUsername();
+        document.getElementById('admin-username').innerText = username;
+        document.getElementById('welcome-title').innerText = `Welcome back, ${username}!`;
+        loadStats();
+        loadRecentSchedules();
+    }
+
+    async function loadStats() {
+        apiFetch('/admin/list-of-buses').then(d => {
+            document.getElementById('stat-buses').innerText = d.bus_list ? d.bus_list.length : 0;
+        }).catch(() => document.getElementById('stat-buses').innerText = 0);
+
+        apiFetch('/admin/get-routes').then(d => {
+            document.getElementById('stat-routes').innerText = d.routes ? d.routes.length : 0;
+        }).catch(() => document.getElementById('stat-routes').innerText = 0);
+
+        apiFetch('/admin/get-all-schedules').then(d => {
+            document.getElementById('stat-schedules').innerText = d.schedules ? d.schedules.length : 0;
+        }).catch(() => document.getElementById('stat-schedules').innerText = 0);
+
+        apiFetch('/admin/registered-users').then(d => {
+            document.getElementById('stat-users').innerText = d.users ? d.users.length : 0;
+        }).catch(() => document.getElementById('stat-users').innerText = 0);
+    }
+
+    async function loadRecentSchedules() {
+        try {
+            const [schedData, busData, routeData] = await Promise.all([
+                apiFetch('/admin/get-all-schedules'),
+                apiFetch('/admin/list-of-buses'),
+                apiFetch('/admin/get-routes')
+            ]);
+            const schedules = (schedData.schedules || []).slice(0, 5);
+            const buses = busData.bus_list || [];
+            const routes = routeData.routes || [];
+            const getBus = id => buses.find(b => b.id === id);
+            const getRoute = id => routes.find(r => r.id === id);
+            const container = document.getElementById('recent-schedules-container');
+            if (!schedules.length) { renderEmptyState('recent-schedules-container', 'No schedules yet'); return; }
+            container.innerHTML = `
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Bus</th><th>Route</th><th>Start</th><th>End</th><th>Actions</th></tr></thead>
+                        <tbody>
+                            ${schedules.map(s => {
+                                const bus = getBus(s.bus_id);
+                                const route = getRoute(s.route_id);
+                                return `<tr>
+                                    <td><span class="badge badge-blue">${bus ? bus.bus_code : '#'+s.bus_id}</span></td>
+                                    <td>${route ? route.name : '#'+s.route_id}</td>
+                                    <td style="font-size:0.8rem">${formatDateTime(s.start_time)}</td>
+                                    <td style="font-size:0.8rem">${formatDateTime(s.end_time)}</td>
+                                    <td><button class="btn btn-danger btn-sm" onclick="deleteSchedule(${s.id})">Delete</button></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>`;
+        } catch (err) {
+            renderEmptyState('recent-schedules-container', 'Failed to load schedules');
+        }
+    }
+
+    async function deleteSchedule(id) {
+        if (!confirm('Delete this schedule?')) return;
+        try {
+            await apiFetch(`/admin/${id}/delete-schedule`, { method: 'DELETE' });
+            showToast('Schedule deleted', 'success');
+            loadStats(); loadRecentSchedules();
+        } catch (err) { showToast(err.message, 'error'); }
+    }
+</script>
+</body>
+</html>

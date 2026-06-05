@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Passenger Dashboard - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div id="navbar-container"></div>
+
+<div class="passenger-page">
+    <!-- Favourites -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <div class="section-title" style="margin:0">⭐ Favourite Routes</div>
+    </div>
+    <div id="favourites-container" class="route-grid" style="margin-bottom:0"></div>
+
+    <hr class="section-divider">
+
+    <!-- All Routes with search -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+        <div class="section-title" style="margin:0">🗺️ All Routes</div>
+        <span id="route-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+    </div>
+    <div class="search-bar" style="margin-bottom:1rem">
+        <input type="text" id="route-search" placeholder="Search routes..." oninput="filterRoutes()">
+    </div>
+    <div id="routes-container" class="route-grid"></div>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let allRoutes = [];
+    let favouritesList = [];
+
+    if (guardPage(['passenger'])) {
+        renderNavbar('navbar-container');
+        loadDashboard();
+    }
+
+    async function loadDashboard() {
+        showSpinner();
+        try {
+            const [favData, routesData] = await Promise.all([
+                apiFetch('/favourites'),
+                apiFetch('/routes')
+            ]);
+            favouritesList = favData.favourites || [];
+            allRoutes = routesData.routes || [];
+            document.getElementById('route-count').innerText = `${allRoutes.length} route${allRoutes.length !== 1 ? 's' : ''}`;
+            renderFavourites();
+            renderRoutes(allRoutes);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    function isFavourite(routeId) {
+        return favouritesList.some(f => f.id === routeId);
+    }
+
+    function filterRoutes() {
+        const q = document.getElementById('route-search').value.toLowerCase();
+        const filtered = allRoutes.filter(r => r.name.toLowerCase().includes(q));
+        renderRoutes(filtered);
+    }
+
+    function renderRoutes(routes) {
+        const container = document.getElementById('routes-container');
+        if (!routes.length) { renderEmptyState('routes-container', 'No routes found'); return; }
+        container.innerHTML = routes.map(route => `
+            <div class="route-card">
+                <div class="route-card-name">🚌 ${route.name}</div>
+                <div class="route-card-meta">
+                    📏 ${(route.total_distance / 1000).toFixed(1)} km
+                </div>
+                <div class="route-card-actions">
+                    <button class="btn btn-primary btn-sm" onclick="trackRoute(${route.id})">📍 Track Bus</button>
+                    <button class="fav-btn ${isFavourite(route.id) ? 'active' : ''}" onclick="toggleFavourite(${route.id}, this)" title="${isFavourite(route.id) ? 'Remove favourite' : 'Add to favourites'}">
+                        ${isFavourite(route.id) ? '★' : '☆'}
+                    </button>
+                </div>
+            </div>`).join('');
+    }
+
+    function renderFavourites() {
+        const container = document.getElementById('favourites-container');
+        if (!favouritesList.length) {
+            container.innerHTML = `<p style="color:var(--text-muted);font-size:0.875rem;padding:0.5rem 0">No favourite routes yet. Star a route below to add it here.</p>`;
+            return;
+        }
+        const favRoutes = favouritesList
+            .map(f => allRoutes.find(r => r.id === f.id))
+            .filter(Boolean);
+        container.innerHTML = favRoutes.map(route => `
+            <div class="route-card" style="border-color:rgba(245,158,11,0.3)">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.25rem">
+                    <div class="route-card-name">🚌 ${route.name}</div>
+                    <span style="color:var(--warning);font-size:1rem">★</span>
+                </div>
+                <div class="route-card-meta">📏 ${(route.total_distance / 1000).toFixed(1)} km</div>
+                <div class="route-card-actions">
+                    <button class="btn btn-primary btn-sm" onclick="trackRoute(${route.id})">📍 Track Bus</button>
+                    <button class="btn btn-outline btn-sm" onclick="removeFavourite(${route.id})">Remove</button>
+                </div>
+            </div>`).join('');
+    }
+
+    function trackRoute(routeId) {
+        window.location.href = `track.html?route_id=${routeId}`;
+    }
+
+    async function toggleFavourite(routeId, btnEl) {
+        const adding = !isFavourite(routeId);
+        try {
+            if (adding) {
+                await apiFetch(`/favourites/${routeId}`, { method: 'POST' });
+                showToast('Added to favourites', 'success');
+            } else {
+                await apiFetch(`/favourites/${routeId}`, { method: 'DELETE' });
+                showToast('Removed from favourites', 'info');
+            }
+            await loadDashboard();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    }
+
+    async function removeFavourite(routeId) {
+        try {
+            await apiFetch(`/favourites/${routeId}`, { method: 'DELETE' });
+            showToast('Removed from favourites', 'info');
+            await loadDashboard();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    }
+</script>
+</body>
+</html>

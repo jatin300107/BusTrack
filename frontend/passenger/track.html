@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Bus - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        body { overflow: hidden; }
+        .track-page { position: relative; height: 100vh; }
+        .track-map { width: 100%; height: 100%; }
+        .track-topbar {
+            position: absolute; top: 0; left: 0; right: 0; z-index: 500;
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(15,17,23,0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+        .track-title { font-weight: 600; font-size: 0.95rem; flex: 1; }
+        .track-status { font-size: 0.8rem; color: var(--text-muted); }
+        .track-controls {
+            position: absolute; top: 60px; left: 1rem; z-index: 1000;
+            width: 300px;
+        }
+        .track-input-card {
+            background: rgba(26,29,39,0.92);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1rem;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow-lg);
+        }
+        .track-input-group { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .eta-card {
+            position: absolute; top: 60px; right: 1rem; z-index: 1000;
+            background: rgba(26,29,39,0.92);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem;
+            min-width: 180px;
+            backdrop-filter: blur(12px);
+            box-shadow: var(--shadow-lg);
+        }
+        .eta-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .eta-value { font-size: 2rem; font-weight: 700; margin: 0.2rem 0; }
+        .eta-value.arriving { color: var(--success); }
+        .eta-value.passed { color: var(--danger); }
+        .eta-value.far { color: var(--warning); }
+        .eta-meta { font-size: 0.75rem; color: var(--text-muted); }
+        .poll-timer { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+        .poll-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 0.4rem; overflow: hidden; }
+        .poll-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 1s linear; }
+        @media(max-width: 600px) {
+            .track-controls { width: calc(100% - 2rem); }
+            .eta-card { left: 1rem; right: 1rem; top: auto; bottom: 1rem; min-width: auto; display: flex; align-items: center; gap: 1rem; }
+            .eta-value { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="track-page">
+    <!-- Top Bar -->
+    <div class="track-topbar">
+        <a href="dashboard.html" class="btn btn-outline btn-sm">← Back</a>
+        <div class="track-title" id="route-title">Loading route...</div>
+        <div class="track-status" id="bus-status">—</div>
+    </div>
+
+    <!-- Controls -->
+    <div class="track-controls">
+        <div class="track-input-card">
+            <label class="form-label">Your Location</label>
+            <div class="track-input-group">
+                <input type="text" id="passenger-address" class="form-input" placeholder="Enter your address..." value="Mumbai, India">
+                <button class="btn btn-primary" id="start-track-btn" onclick="startTracking()">Track</button>
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem" id="track-hint">
+                Enter an address near the route to get ETA.
+            </div>
+        </div>
+    </div>
+
+    <!-- ETA Card -->
+    <div class="eta-card" id="eta-card" style="display:none">
+        <div class="eta-label">Estimated Arrival</div>
+        <div class="eta-value" id="eta-value">—</div>
+        <div class="eta-meta" id="eta-meta"></div>
+        <div class="poll-timer" id="poll-timer" style="display:none">
+            <div style="font-size:0.7rem;color:var(--text-muted)">Next update in <span id="countdown">10</span>s</div>
+            <div class="poll-bar"><div class="poll-fill" id="poll-fill" style="width:100%"></div></div>
+        </div>
+    </div>
+
+    <div id="map" class="track-map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let map, routePolyline, busMarker, passengerMarker;
+    let trackingInterval, countdownInterval;
+    let activeBusId = null;
+    let routeId = null;
+    const POLL_INTERVAL = 10; // seconds
+
+    if (guardPage(['passenger'])) {
+        initPage();
+    }
+
+    async function initPage() {
+        const params = new URLSearchParams(window.location.search);
+        routeId = params.get('route_id');
+        if (!routeId) {
+            showToast('Invalid route', 'error');
+            setTimeout(() => window.location.href = 'dashboard.html', 1500);
+            return;
+        }
+        initMap();
+        await fetchRouteData();
+    }
+
+    function initMap() {
+        map = L.map('map', { zoomControl: false }).setView([20.5937, 78.9629], 5);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO'
+        }).addTo(map);
+
+        const makeIcon = emoji => L.divIcon({
+            iconSize: [36, 36], iconAnchor: [18, 18], className: '',
+            html: `<div style="font-size:26px;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.7));line-height:36px;text-align:center">${emoji}</div>`
+        });
+
+        busMarker = L.marker([0, 0], { icon: makeIcon('🚌'), title: 'Bus' });
+        passengerMarker = L.marker([0, 0], { icon: makeIcon('🧍'), title: 'You' });
+    }
+
+    async function fetchRouteData() {
+        showSpinner();
+        try {
+            // Get active bus
+            const busData = await apiFetch(`/routes/${routeId}/active-bus`);
+            activeBusId = busData.bus_id;
+            document.getElementById('bus-status').innerHTML =
+                `<span class="live-dot"></span> Bus ${busData.bus_code} active`;
+
+            // Get route geometry
+            const routesData = await apiFetch('/routes');
+            const route = routesData.routes.find(r => r.id == routeId);
+            if (route) {
+                document.getElementById('route-title').innerText = route.name;
+                if (route.geometry && route.geometry.length) {
+                    const latLngs = route.geometry.map(c => [c[1], c[0]]);
+                    routePolyline = L.polyline(latLngs, {
+                        color: '#4f8ef7', weight: 4, opacity: 0.85,
+                        dashArray: null
+                    }).addTo(map);
+                    map.fitBounds(routePolyline.getBounds(), { padding: [80, 80] });
+
+                    // Add start/end markers
+                    const start = latLngs[0];
+                    const end = latLngs[latLngs.length - 1];
+                    L.circleMarker(start, { radius: 8, color: '#22c55e', fillColor: '#22c55e', fillOpacity: 1 })
+                        .addTo(map).bindPopup('Start');
+                    L.circleMarker(end, { radius: 8, color: '#ef4444', fillColor: '#ef4444', fillOpacity: 1 })
+                        .addTo(map).bindPopup('End');
+                }
+            }
+        } catch (err) {
+            showToast('No active bus on this route right now', 'warning');
+            document.getElementById('bus-status').innerHTML = `<span class="live-dot offline"></span> No active bus`;
+            document.getElementById('start-track-btn').disabled = true;
+            document.getElementById('track-hint').innerText = 'No active schedule right now. Check back later.';
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    async function startTracking() {
+        if (!activeBusId) return;
+        const address = document.getElementById('passenger-address').value.trim();
+        if (!address) { showToast('Enter your location', 'warning'); return; }
+
+        const btn = document.getElementById('start-track-btn');
+        setButtonLoading(btn, true);
+
+        // Stop existing interval
+        if (trackingInterval) clearInterval(trackingInterval);
+        if (countdownInterval) clearInterval(countdownInterval);
+
+        await pollLocation(address);
+
+        // Start polling
+        trackingInterval = setInterval(() => pollLocation(address), POLL_INTERVAL * 1000);
+
+        // Countdown timer
+        startCountdown();
+
+        setButtonLoading(btn, false);
+        btn.innerText = '🔄 Tracking...';
+        btn.onclick = stopTracking;
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-primary');
+
+        document.getElementById('eta-card').style.display = 'block';
+        document.getElementById('poll-timer').style.display = 'block';
+    }
+
+    function stopTracking() {
+        clearInterval(trackingInterval);
+        clearInterval(countdownInterval);
+        trackingInterval = null;
+
+        const btn = document.getElementById('start-track-btn');
+        btn.innerText = 'Track';
+        btn.onclick = startTracking;
+        btn.classList.remove('btn-success');
+        btn.classList.add('btn-primary');
+
+        document.getElementById('poll-timer').style.display = 'none';
+        showToast('Tracking stopped', 'info');
+    }
+
+    function startCountdown() {
+        let seconds = POLL_INTERVAL;
+        document.getElementById('countdown').innerText = seconds;
+        document.getElementById('poll-fill').style.width = '100%';
+
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+            seconds--;
+            if (seconds < 0) {
+                seconds = POLL_INTERVAL;
+                document.getElementById('poll-fill').style.width = '100%';
+            } else {
+                document.getElementById('poll-fill').style.width = `${(seconds / POLL_INTERVAL) * 100}%`;
+            }
+            document.getElementById('countdown').innerText = seconds;
+        }, 1000);
+    }
+
+    async function pollLocation(address) {
+        try {
+            // Fetch ETA data
+            console.log("polling with busId:", activeBusId);
+            const data = await apiFetch(`/buses/${activeBusId}/location`, {
+                method: 'POST',
+                body: JSON.stringify({ current_location: address })
+            });
+            console.log("poll response:", data);
+            const etaEl = document.getElementById('eta-value');
+            const metaEl = document.getElementById('eta-meta');
+
+            if (data.distance_from_route !== undefined) {
+                etaEl.innerText = '—';
+                etaEl.className = 'eta-value far';
+                metaEl.innerText = `${Math.round(data.distance_from_route)}m from route`;
+                showToast(`You're ${Math.round(data.distance_from_route)}m from this route`, 'warning');
+            } else if (data.waiting_time_minutes !== undefined) {
+                const mins = Math.round(data.waiting_time_minutes);
+                etaEl.innerText = `${mins} min${mins !== 1 ? 's' : ''}`;
+                etaEl.className = 'eta-value arriving';
+                metaEl.innerText = 'Bus is on its way';
+            } else if (data.message === 'Bus has already passed your stop') {
+                etaEl.innerText = 'Passed';
+                etaEl.className = 'eta-value passed';
+                metaEl.innerText = 'Wait for the next bus';
+            }
+
+            // Update passenger coords if backend returns them
+            if (data.passenger_lat !== undefined && data.passenger_lon !== undefined) {
+                updatePassengerMarker(data.passenger_lat, data.passenger_lon);
+            }
+
+            // Fetch and update bus marker position
+            await updateBusMarker();
+
+        } catch (err) {
+            console.error('Poll error:', err);
+        }
+    }
+    console.log("about to call updateBusMarker");
+    async function updateBusMarker() {
+        console.log("updateBusMarker called, routeId:", routeId);
+
+        try {
+            const loc = await apiFetch(`/driver-location/${routeId}`);
+            if (loc.latitude === undefined || loc.longitude === undefined) return;
+
+            const latlng = [loc.latitude, loc.longitude];
+
+            if (!busMarker._map) {
+                busMarker.addTo(map);
+            }
+            busMarker.setLatLng(latlng);
+        } catch (err) {
+            console.error('Bus location fetch error:', err);
+        }
+    }
+
+    function updatePassengerMarker(lat, lon) {
+        const latlng = [lat, lon];
+        if (!passengerMarker._map) {
+            passengerMarker.addTo(map);
+        }
+        passengerMarker.setLatLng(latlng);
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (trackingInterval) clearInterval(trackingInterval);
+        if (countdownInterval) clearInterval(countdownInterval);
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Routes - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="admin-layout">
+    <div id="admin-sidebar" class="sidebar"></div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <main class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <h2>Manage Routes</h2>
+        </header>
+
+        <div class="form-row" style="margin-bottom:1.5rem;align-items:start">
+            <!-- Create Route -->
+            <div class="card">
+                <div class="card-title" style="margin-bottom:1rem">Create Route</div>
+                <form id="add-route-form" onsubmit="handleAddRoute(event)">
+                    <div class="form-group">
+                        <label class="form-label">Route Name</label>
+                        <input type="text" id="route-name" class="form-input" required placeholder="e.g. City Center to Airport">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Add Stop</label>
+                        <div style="display:flex;gap:0.5rem">
+                            <select id="route-stop-select" class="form-select">
+                                <option value="">Select a stop...</option>
+                            </select>
+                            <button type="button" class="btn btn-outline" onclick="addStopToList()">Add</button>
+                        </div>
+                    </div>
+                    <ul id="selected-stops-list" class="stop-list"></ul>
+                    <button type="submit" class="btn btn-primary btn-block" id="add-route-btn" style="margin-top:0.75rem">Create Route</button>
+                </form>
+            </div>
+
+            <!-- Create Stop -->
+            <div class="card">
+                <div class="card-title" style="margin-bottom:1rem">Create New Stop</div>
+                <form id="add-stop-form" onsubmit="handleAddStop(event)">
+                    <div class="form-group">
+                        <label class="form-label">Stop Name</label>
+                        <input type="text" id="stop-name" class="form-input" required placeholder="e.g. MG Road Bus Stand">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location Address</label>
+                        <input type="text" id="stop-address" class="form-input" required placeholder="e.g. MG Road, Mumbai">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-block" id="add-stop-btn">Create Stop</button>
+                </form>
+
+                <div style="margin-top:1.5rem">
+                    <div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.5rem">Existing Stops</div>
+                    <div id="stops-list" style="max-height:200px;overflow-y:auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <div class="card-title">All Routes</div>
+                <span id="route-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+            </div>
+            <div id="routes-container"></div>
+        </div>
+    </main>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let allStops = [];
+    let selectedStopsForRoute = [];
+
+    if (guardPage(['admin'])) {
+        renderAdminSidebar('routes');
+        loadData();
+    }
+
+    async function loadData() {
+        showSpinner();
+        try {
+            await loadStops();
+            await loadRoutes();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    async function loadStops() {
+        const data = await apiFetch('/admin/get-all-stops');
+        allStops = data.stops || [];
+        const select = document.getElementById('route-stop-select');
+        select.innerHTML = '<option value="">Select a stop...</option>' +
+            allStops.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+
+        const stopsList = document.getElementById('stops-list');
+        if (!allStops.length) {
+            stopsList.innerHTML = '<p style="font-size:0.8rem;color:var(--text-muted)">No stops yet</p>';
+        } else {
+            stopsList.innerHTML = allStops.map(s => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:0.85rem">
+                    <span>📍 ${s.name}</span>
+                    <span style="font-size:0.75rem;color:var(--text-muted)">${s.latitude ? s.latitude.toFixed(4) : '—'}, ${s.longitude ? s.longitude.toFixed(4) : '—'}</span>
+                </div>`).join('');
+        }
+    }
+
+    async function loadRoutes() {
+        const data = await apiFetch('/admin/get-routes');
+        const routes = data.routes || [];
+        document.getElementById('route-count').innerText = `${routes.length} route${routes.length !== 1 ? 's' : ''}`;
+        renderRoutesTable(routes);
+    }
+
+    function renderRoutesTable(routes) {
+        const container = document.getElementById('routes-container');
+        if (!routes.length) { renderEmptyState('routes-container', 'No routes found'); return; }
+        container.innerHTML = `
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>ID</th><th>Route Name</th><th>Distance</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        ${routes.map(r => `
+                            <tr>
+                                <td style="color:var(--text-muted)">#${r.id}</td>
+                                <td><strong>${r.name}</strong></td>
+                                <td>${(r.total_distance / 1000).toFixed(1)} km</td>
+                                <td style="display:flex;gap:0.5rem">
+                                    <button class="btn btn-outline btn-sm" onclick="viewStops(${r.id}, '${r.name.replace(/'/g,"\\'")}')">View Stops</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteRoute(${r.id})">Delete</button>
+                                </td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    function addStopToList() {
+        const select = document.getElementById('route-stop-select');
+        const stopName = select.value;
+        if (!stopName) return;
+        if (selectedStopsForRoute.includes(stopName)) { showToast('Stop already added', 'warning'); return; }
+        selectedStopsForRoute.push(stopName);
+        select.value = '';
+        renderSelectedStops();
+    }
+
+    function removeStopFromList(index) {
+        selectedStopsForRoute.splice(index, 1);
+        renderSelectedStops();
+    }
+
+    function renderSelectedStops() {
+        const list = document.getElementById('selected-stops-list');
+        list.innerHTML = selectedStopsForRoute.map((name, i) => `
+            <li class="stop-list-item">
+                <span class="stop-order">${i + 1}</span>
+                <span class="stop-name">${name}</span>
+                <button type="button" class="stop-remove" onclick="removeStopFromList(${i})">✕</button>
+            </li>`).join('');
+    }
+
+    async function handleAddStop(e) {
+        e.preventDefault();
+        const btn = document.getElementById('add-stop-btn');
+        const nameInput = document.getElementById('stop-name');
+        const addressInput = document.getElementById('stop-address');
+        if (!validateField(nameInput, { required: true, label: 'Name' }) ||
+            !validateField(addressInput, { required: true, label: 'Address' })) return;
+        try {
+            setButtonLoading(btn, true);
+            await apiFetch('/admin/create-stop', {
+                method: 'POST',
+                body: JSON.stringify({ name: nameInput.value, address: addressInput.value })
+            });
+            showToast('Stop created', 'success');
+            document.getElementById('add-stop-form').reset();
+            loadStops();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    }
+
+    async function handleAddRoute(e) {
+        e.preventDefault();
+        const btn = document.getElementById('add-route-btn');
+        const nameInput = document.getElementById('route-name');
+        if (!validateField(nameInput, { required: true, label: 'Route Name' })) return;
+        if (selectedStopsForRoute.length < 2) { showToast('At least 2 stops required', 'error'); return; }
+        try {
+            setButtonLoading(btn, true);
+            await apiFetch('/admin/add-route', {
+                method: 'POST',
+                body: JSON.stringify({ name: nameInput.value, stops: selectedStopsForRoute })
+            });
+            showToast('Route created', 'success');
+            document.getElementById('add-route-form').reset();
+            selectedStopsForRoute = [];
+            renderSelectedStops();
+            loadRoutes();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    }
+
+    async function viewStops(routeId, routeName) {
+        // Show stops in a simple alert for now - can be extended to a modal
+        try {
+            showSpinner();
+            const data = await apiFetch(`/admin/get-all-stops`);
+            const stops = data.stops || [];
+            hideSpinner();
+            // Simple display - just show names
+            const names = stops.map((s, i) => `${i+1}. ${s.name}`).join('\n');
+            alert(`Stops for "${routeName}":\n\n${names || 'No stops data available'}`);
+        } catch (err) {
+            hideSpinner();
+            showToast('Could not load stops', 'error');
+        }
+    }
+
+    async function deleteRoute(id) {
+        if (!confirm('Delete this route? This cannot be undone.')) return;
+        try {
+            showSpinner();
+            await apiFetch(`/admin/${id}/delete-route`, { method: 'DELETE' });
+            showToast('Route deleted', 'success');
+            loadRoutes();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            hideSpinner();
+        }
+    }
+</script>
+</body>
+</html>

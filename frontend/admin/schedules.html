@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Schedules - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="admin-layout">
+    <div id="admin-sidebar" class="sidebar"></div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <main class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <h2>Manage Schedules</h2>
+        </header>
+
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-title" style="margin-bottom:1rem">Create Schedule</div>
+            <form id="add-schedule-form" onsubmit="handleAddSchedule(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Driver</label>
+                        <select id="sched-driver" class="form-select" required>
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Bus</label>
+                        <select id="sched-bus" class="form-select" required>
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Route</label>
+                        <select id="sched-route" class="form-select" required>
+                            <option value="">Loading...</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Start Time</label>
+                        <input type="datetime-local" id="sched-start" class="form-input" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">End Time</label>
+                        <input type="datetime-local" id="sched-end" class="form-input" required>
+                    </div>
+                    <div></div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="add-btn">Create Schedule</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <div class="card-title">All Schedules</div>
+                <span id="sched-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+            </div>
+            <div id="schedules-container"></div>
+        </div>
+    </main>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let busMap = {}, routeMap = {}, userMap = {};
+
+    if (guardPage(['admin'])) {
+        renderAdminSidebar('schedules');
+        loadData();
+    }
+
+    async function loadData() {
+        showSpinner();
+        try {
+            await loadOptions();
+            await loadSchedules();
+        } catch (err) {
+            console.error(err);
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    async function loadOptions() {
+        const data = await apiFetch('/admin/schedule-options');
+
+        const drivers = data.drivers || [];
+        const buses = data.buses || [];
+        const routes = (data.routes && data.routes.routes) ? data.routes.routes : [];
+
+        // Build maps for later lookup
+        drivers.forEach(d => userMap[d.id] = d.username);
+        buses.forEach(b => busMap[b.id] = b.bus_code);
+        routes.forEach(r => routeMap[r.id] = r.name);
+
+        const drSelect = document.getElementById('sched-driver');
+        drSelect.innerHTML = '<option value="">Select driver...</option>' +
+            drivers.map(d => `<option value="${d.id}">${d.username}</option>`).join('');
+
+        const busSelect = document.getElementById('sched-bus');
+        busSelect.innerHTML = '<option value="">Select bus...</option>' +
+            buses.map(b => `<option value="${b.id}">${b.bus_code}</option>`).join('');
+
+        const routeSelect = document.getElementById('sched-route');
+        routeSelect.innerHTML = '<option value="">Select route...</option>' +
+            routes.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    }
+
+    async function loadSchedules() {
+        try {
+            const data = await apiFetch('/admin/get-all-schedules');
+            const schedules = data.schedules || [];
+            document.getElementById('sched-count').innerText = `${schedules.length} schedule${schedules.length !== 1 ? 's' : ''}`;
+            renderSchedulesTable(schedules);
+        } catch (err) {
+            renderEmptyState('schedules-container', 'Failed to load schedules');
+        }
+    }
+
+    function renderSchedulesTable(schedules) {
+        const container = document.getElementById('schedules-container');
+        if (!schedules.length) { renderEmptyState('schedules-container', 'No schedules found'); return; }
+        container.innerHTML = `
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr>
+                        <th>ID</th><th>Driver</th><th>Bus</th><th>Route</th><th>Start</th><th>End</th><th>Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        ${schedules.map(s => `
+                            <tr>
+                                <td style="color:var(--text-muted)">#${s.id}</td>
+                                <td>${userMap[s.driver_id] || '#'+s.driver_id}</td>
+                                <td><span class="badge badge-blue">${busMap[s.bus_id] || '#'+s.bus_id}</span></td>
+                                <td>${routeMap[s.route_id] || '#'+s.route_id}</td>
+                                <td style="font-size:0.8rem">${formatDateTime(s.start_time)}</td>
+                                <td style="font-size:0.8rem">${formatDateTime(s.end_time)}</td>
+                                <td><button class="btn btn-danger btn-sm" onclick="deleteSchedule(${s.id})">Delete</button></td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    async function handleAddSchedule(e) {
+        e.preventDefault();
+        const btn = document.getElementById('add-btn');
+        const driverId = document.getElementById('sched-driver').value;
+        const busId = document.getElementById('sched-bus').value;
+        const routeId = document.getElementById('sched-route').value;
+        let start = document.getElementById('sched-start').value;
+        let end = document.getElementById('sched-end').value;
+        if (!driverId || !busId || !routeId || !start || !end) {
+            showToast('Please fill all fields', 'warning'); return;
+        }
+        if (new Date(end) <= new Date(start)) {
+            showToast('End time must be after start time', 'warning'); return;
+        }
+        try {
+            setButtonLoading(btn, true);
+            await apiFetch('/admin/create-schedule', {
+                method: 'POST',
+                body: JSON.stringify({
+                    driver_id: parseInt(driverId), bus_id: parseInt(busId),
+                    route_id: parseInt(routeId),
+                    start_time: new Date(start).toISOString(),
+                    end_time: new Date(end).toISOString()
+                })
+            });
+            showToast('Schedule created', 'success');
+            document.getElementById('add-schedule-form').reset();
+            loadSchedules();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    }
+
+    async function deleteSchedule(id) {
+        if (!confirm('Delete this schedule?')) return;
+        try {
+            showSpinner();
+            await apiFetch(`/admin/${id}/delete-schedule`, { method: 'DELETE' });
+            showToast('Schedule deleted', 'success');
+            loadSchedules();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            hideSpinner();
+        }
+    }
+</script>
+</body>
+</html>

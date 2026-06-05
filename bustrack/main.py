@@ -1,6 +1,19 @@
 from fastapi import FastAPI
 
 app = FastAPI()
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:8080"],  # restrict this in production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/frontend", StaticFiles(directory="frontend", html=True), name="frontend")
 from bustrack.auth.auth import auth
 app.include_router(auth)
 from bustrack.admin.admin import admin

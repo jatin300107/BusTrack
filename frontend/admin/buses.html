@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Buses - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="admin-layout">
+    <div id="admin-sidebar" class="sidebar"></div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <main class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <h2>Manage Buses</h2>
+        </header>
+
+        <div class="card" style="margin-bottom:1.5rem">
+            <div class="card-title" style="margin-bottom:1rem">Add New Bus</div>
+            <form id="add-bus-form" onsubmit="handleAddBus(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Bus Code (e.g. MH-12-AB-1234)</label>
+                        <input type="text" id="bus-code" class="form-input" required placeholder="MH-12-AB-1234">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Average Speed (km/h)</label>
+                        <input type="number" id="avg-speed" class="form-input" required min="1" max="120" value="40">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" id="add-btn">Add Bus</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+                <div class="card-title">All Buses</div>
+                <span id="bus-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+            </div>
+            <div class="search-bar" style="margin-bottom:1rem">
+                <input type="text" id="bus-search" placeholder="Search by bus code..." oninput="filterBuses()">
+            </div>
+            <div id="buses-container"></div>
+        </div>
+    </main>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <span class="modal-title">Edit Bus</span>
+            <button class="modal-close" onclick="closeEditModal()">✕</button>
+        </div>
+        <form onsubmit="handleEditBus(event)">
+            <input type="hidden" id="edit-bus-id">
+            <div class="form-group">
+                <label class="form-label">Bus Code</label>
+                <input type="text" id="edit-bus-code" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Average Speed (km/h)</label>
+                <input type="number" id="edit-avg-speed" class="form-input" required min="1" max="120">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="edit-save-btn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let allBuses = [];
+
+    if (guardPage(['admin'])) {
+        renderAdminSidebar('buses');
+        loadBuses();
+    }
+
+    async function loadBuses() {
+        showSpinner();
+        try {
+            const data = await apiFetch('/admin/list-of-buses');
+            allBuses = data.bus_list || [];
+            document.getElementById('bus-count').innerText = `${allBuses.length} bus${allBuses.length !== 1 ? 'es' : ''}`;
+            renderBusesTable(allBuses);
+        } catch (err) {
+            renderEmptyState('buses-container', 'Failed to load buses');
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    function filterBuses() {
+        const q = document.getElementById('bus-search').value.toLowerCase();
+        const filtered = allBuses.filter(b => b.bus_code.toLowerCase().includes(q));
+        renderBusesTable(filtered);
+    }
+
+    function renderBusesTable(buses) {
+        const container = document.getElementById('buses-container');
+        if (!buses.length) { renderEmptyState('buses-container', 'No buses found'); return; }
+        container.innerHTML = `
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>ID</th><th>Bus Code</th><th>Avg Speed</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                        ${buses.map(bus => `
+                            <tr>
+                                <td style="color:var(--text-muted)">#${bus.id}</td>
+                                <td><strong>${bus.bus_code}</strong></td>
+                                <td>${bus.avg_speed} km/h</td>
+                                <td><span class="badge badge-green">Active</span></td>
+                                <td style="display:flex;gap:0.5rem">
+                                    <button class="btn btn-outline btn-sm" onclick="openEditModal(${bus.id}, '${bus.bus_code}', ${bus.avg_speed})">Edit</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteBus(${bus.id})">Delete</button>
+                                </td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+
+    async function handleAddBus(e) {
+        e.preventDefault();
+        const btn = document.getElementById('add-btn');
+        const codeInput = document.getElementById('bus-code');
+        const speedInput = document.getElementById('avg-speed');
+        if (!validateField(codeInput, { required: true, label: 'Bus Code' }) ||
+            !validateField(speedInput, { required: true, label: 'Avg Speed' })) return;
+        try {
+            setButtonLoading(btn, true);
+            await apiFetch('/admin/add-bus', {
+                method: 'POST',
+                body: JSON.stringify({ bus_code: codeInput.value, avg_speed: parseFloat(speedInput.value) })
+            });
+            showToast('Bus added successfully', 'success');
+            document.getElementById('add-bus-form').reset();
+            loadBuses();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    }
+
+    function openEditModal(id, code, speed) {
+        document.getElementById('edit-bus-id').value = id;
+        document.getElementById('edit-bus-code').value = code;
+        document.getElementById('edit-avg-speed').value = speed;
+        document.getElementById('edit-modal').classList.add('active');
+    }
+    function closeEditModal() {
+        document.getElementById('edit-modal').classList.remove('active');
+    }
+
+    async function handleEditBus(e) {
+        e.preventDefault();
+        const btn = document.getElementById('edit-save-btn');
+        const id = document.getElementById('edit-bus-id').value;
+        try {
+            setButtonLoading(btn, true);
+            await apiFetch(`/admin/update-bus/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    bus_code: document.getElementById('edit-bus-code').value,
+                    avg_speed: parseFloat(document.getElementById('edit-avg-speed').value)
+                })
+            });
+            showToast('Bus updated', 'success');
+            closeEditModal();
+            loadBuses();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    }
+
+    async function deleteBus(id) {
+        if (!confirm('Delete this bus?')) return;
+        try {
+            showSpinner();
+            await apiFetch(`/admin/remove-bus/${id}`, { method: 'DELETE' });
+            showToast('Bus deleted', 'success');
+            loadBuses();
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            hideSpinner();
+        }
+    }
+</script>
+</body>
+</html>

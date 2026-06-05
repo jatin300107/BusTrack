@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Dashboard - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div id="navbar-container"></div>
+
+<div class="driver-page">
+    <div id="schedule-container">
+        <div class="empty-state"><div class="empty-icon">📅</div><p class="empty-text">Loading schedule...</p></div>
+    </div>
+
+    <!-- Live Status Card -->
+    <div class="card" style="margin-bottom:1.5rem">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+            <div class="card-title">Live Status</div>
+            <div id="live-status-badge" style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;color:var(--text-muted)">
+                <span class="live-dot offline"></span> Not broadcasting
+            </div>
+        </div>
+        <div id="last-location-display" style="font-size:0.875rem;color:var(--text-muted);margin-bottom:0.5rem">
+            No location submitted yet
+        </div>
+        <div id="location-history" style="max-height:120px;overflow-y:auto"></div>
+    </div>
+
+    <!-- Update Location -->
+    <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">Update Your Location</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Current Address / Location</label>
+                <input type="text" id="loc-address" class="form-input" placeholder="e.g. MG Road, City Center">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Average Speed (km/h)</label>
+                <input type="number" id="loc-speed" class="form-input" min="0" max="120" placeholder="40">
+            </div>
+        </div>
+        <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" id="update-btn" onclick="submitLocation()">📍 Submit Location</button>
+            <button class="btn btn-outline" id="auto-btn" onclick="toggleAutoUpdate()">⏱ Auto (every 30s)</button>
+        </div>
+        <div id="last-updated" class="last-updated" style="display:none;margin-top:0.75rem"></div>
+    </div>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let autoInterval = null;
+    let locationHistory = [];
+    let isAutoActive = false;
+
+    if (guardPage(['driver'])) {
+        renderNavbar('navbar-container');
+        loadSchedule();
+    }
+
+    async function loadSchedule() {
+        showSpinner();
+        try {
+            const data = await apiFetch('/schedule');
+            renderSchedule(data);
+        } catch (err) {
+            renderEmptyState('schedule-container', 'No active schedule assigned to you today.');
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    function renderSchedule(schedule) {
+        const now = new Date();
+        const start = new Date(schedule['Schedule start timing']);
+        const end = new Date(schedule['Schedule ending time']);
+        let status = 'badge-yellow';
+        let statusText = 'Upcoming';
+        if (now >= start && now <= end) { status = 'badge-green'; statusText = 'Active Now'; }
+        else if (now > end) { status = 'badge-red'; statusText = 'Ended'; }
+
+        document.getElementById('schedule-container').innerHTML = `
+            <div class="schedule-card">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+                    <h3 class="card-title">${schedule['Route name']}</h3>
+                    <span class="badge ${status}">${statusText}</span>
+                </div>
+                <div class="schedule-grid">
+                    <div class="schedule-item">
+                        <span class="schedule-item-label">Bus Code</span>
+                        <span class="schedule-item-value">🚌 ${schedule['Bus code']}</span>
+                    </div>
+                    <div class="schedule-item">
+                        <span class="schedule-item-label">Start Time</span>
+                        <span class="schedule-item-value">${formatDateTime(schedule['Schedule start timing'])}</span>
+                    </div>
+                    <div class="schedule-item">
+                        <span class="schedule-item-label">End Time</span>
+                        <span class="schedule-item-value">${formatDateTime(schedule['Schedule ending time'])}</span>
+                    </div>
+                    <div class="schedule-item">
+                        <span class="schedule-item-label">Duration</span>
+                        <span class="schedule-item-value">${getDuration(schedule['Schedule start timing'], schedule['Schedule ending time'])}</span>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function getDuration(start, end) {
+        const diff = new Date(end) - new Date(start);
+        const h = Math.floor(diff / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    async function submitLocation() {
+        const btn = document.getElementById('update-btn');
+        const addressInput = document.getElementById('loc-address');
+        const speedInput = document.getElementById('loc-speed');
+
+        if (!validateField(addressInput, { required: true, label: 'Address' }) ||
+            !validateField(speedInput, { required: true, label: 'Speed' })) return;
+
+        try {
+            setButtonLoading(btn, true);
+            await apiFetch('/update-bus-location', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    current_location: addressInput.value,
+                    avg_speed: parseFloat(speedInput.value)
+                })
+            });
+
+            const now = new Date().toLocaleTimeString();
+            const entry = { address: addressInput.value, speed: speedInput.value, time: now };
+            locationHistory.unshift(entry);
+            if (locationHistory.length > 5) locationHistory.pop();
+
+            // Update last updated display
+            const updatedEl = document.getElementById('last-updated');
+            updatedEl.style.display = 'flex';
+            updatedEl.innerHTML = `<span>✓</span> Last updated: ${now}`;
+
+            // Update live status
+            document.getElementById('live-status-badge').innerHTML =
+                `<span class="live-dot"></span> Broadcasting`;
+            document.getElementById('last-location-display').innerHTML =
+                `📍 ${addressInput.value} · ${speedInput.value} km/h`;
+
+            // Update history
+            renderLocationHistory();
+
+            showToast('Location updated', 'success');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setButtonLoading(btn, false);
+        }
+    }
+
+    function renderLocationHistory() {
+        const container = document.getElementById('location-history');
+        if (!locationHistory.length) return;
+        container.innerHTML = locationHistory.map((entry, i) => `
+            <div style="display:flex;gap:0.75rem;align-items:center;padding:0.35rem 0;border-bottom:1px solid var(--border);font-size:0.8rem;${i === 0 ? 'color:var(--text)' : 'color:var(--text-muted)'}">
+                <span>${entry.time}</span>
+                <span>📍 ${entry.address}</span>
+                <span style="margin-left:auto">${entry.speed} km/h</span>
+            </div>`).join('');
+    }
+
+    function toggleAutoUpdate() {
+        const btn = document.getElementById('auto-btn');
+        if (isAutoActive) {
+            clearInterval(autoInterval);
+            isAutoActive = false;
+            btn.innerHTML = '⏱ Auto (every 30s)';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline');
+            showToast('Auto-update stopped', 'info');
+        } else {
+            isAutoActive = true;
+            btn.innerHTML = '⏹ Stop Auto';
+            btn.classList.remove('btn-outline');
+            btn.classList.add('btn-success');
+            autoInterval = setInterval(submitLocation, 30000);
+            showToast('Auto-update started (every 30s)', 'success');
+        }
+    }
+
+    window.addEventListener('beforeunload', () => {
+        if (autoInterval) clearInterval(autoInterval);
+    });
+</script>
+</body>
+</html>

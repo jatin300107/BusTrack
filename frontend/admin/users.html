@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registered Users - BusTrack</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<div class="admin-layout">
+    <div id="admin-sidebar" class="sidebar"></div>
+    <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+    <main class="admin-main">
+        <header class="admin-header">
+            <button class="hamburger" onclick="toggleSidebar()">☰</button>
+            <h2>Registered Users</h2>
+        </header>
+
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+                <div class="card-title">All Users</div>
+                <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+                    <select id="role-filter" class="form-select" style="width:auto;padding:0.4rem 2rem 0.4rem 0.75rem" onchange="filterUsers()">
+                        <option value="">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="driver">Driver</option>
+                        <option value="passenger">Passenger</option>
+                    </select>
+                    <span id="user-count" style="font-size:0.8rem;color:var(--text-muted)"></span>
+                </div>
+            </div>
+            <div class="search-bar" style="margin-bottom:1rem">
+                <input type="text" id="user-search" placeholder="Search by username or email..." oninput="filterUsers()">
+            </div>
+            <div id="users-container"></div>
+        </div>
+    </main>
+</div>
+
+<script src="../config.js"></script>
+<script src="../auth.js"></script>
+<script src="../utils.js"></script>
+<script>
+    let allUsers = [];
+
+    if (guardPage(['admin'])) {
+        renderAdminSidebar('users');
+        loadUsers();
+    }
+
+    async function loadUsers() {
+        showSpinner();
+        try {
+            const data = await apiFetch('/admin/registered-users');
+            allUsers = data.users || [];
+            document.getElementById('user-count').innerText = `${allUsers.length} user${allUsers.length !== 1 ? 's' : ''}`;
+            renderUsersTable(allUsers);
+        } catch (err) {
+            renderEmptyState('users-container', 'Failed to load users');
+        } finally {
+            hideSpinner();
+        }
+    }
+
+    function filterUsers() {
+        const q = document.getElementById('user-search').value.toLowerCase();
+        const role = document.getElementById('role-filter').value;
+        const filtered = allUsers.filter(u => {
+            const matchQ = u.username.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+            const matchRole = !role || u.role.toLowerCase() === role;
+            return matchQ && matchRole;
+        });
+        renderUsersTable(filtered);
+    }
+
+    const roleBadge = role => {
+        const map = { admin: 'badge-red', driver: 'badge-blue', passenger: 'badge-green' };
+        return `<span class="badge ${map[role.toLowerCase()] || 'badge-blue'}">${role}</span>`;
+    };
+
+    function renderUsersTable(users) {
+        const container = document.getElementById('users-container');
+        if (!users.length) { renderEmptyState('users-container', 'No users found'); return; }
+        container.innerHTML = `
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>#</th><th>Username</th><th>Email</th><th>Role</th></tr></thead>
+                    <tbody>
+                        ${users.map((u, i) => `
+                            <tr>
+                                <td style="color:var(--text-muted)">${i + 1}</td>
+                                <td><strong>${u.username}</strong></td>
+                                <td style="color:var(--text-muted)">${u.email}</td>
+                                <td>${roleBadge(u.role)}</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+    }
+</script>
+</body>
+</html>
