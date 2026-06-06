@@ -70,9 +70,7 @@ Drivers periodically update their current location and average speed through the
 
 ---
 
-## Project Status
-
-Backend in development. Frontend planned as a separate phase.
+# Testing Manual : [BustrackTestingManual](https://docs.google.com/document/d/12hZiiZV0edQeXOjvxaGS36Ya7Rp0vO8A/edit?usp=drive_link&ouid=112278392948970091818&rtpof=true&sd=true)
 
 ---
 
