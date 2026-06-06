@@ -35,31 +35,31 @@ function getUserRole() {
 }
 
 function redirectByRole(role) {
-    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/frontend/') + '/frontend/'.length) || '/frontend/';
+    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + '/'.length) || '/';
     switch (role) {
         case 'admin':
-            window.location.href = '/frontend/admin/dashboard.html';
+            window.location.href = '/admin/dashboard.html';
             break;
         case 'driver':
-            window.location.href = '/frontend/driver/dashboard.html';
+            window.location.href = '/driver/dashboard.html';
             break;
         case 'passenger':
-            window.location.href = '/frontend/passenger/dashboard.html';
+            window.location.href = '/passenger/dashboard.html';
             break;
         default:
-            window.location.href = '/frontend/index.html';
+            window.location.href = '/index.html';
     }
 }
 
 function guardPage(allowedRoles) {
     const token = getToken();
     if (!token) {
-        window.location.href = '/frontend/index.html';
+        window.location.href = '/index.html';
         return false;
     }
     const payload = decodeToken();
     if (!payload || !allowedRoles.includes(payload.role)) {
-        window.location.href = '/frontend/index.html';
+        window.location.href = '/index.html';
         return false;
     }
     return true;
@@ -67,5 +67,5 @@ function guardPage(allowedRoles) {
 
 function logout() {
     removeToken();
-    window.location.href = '/frontend/index.html';
+    window.location.href = '/index.html';
 }

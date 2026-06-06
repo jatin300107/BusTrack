@@ -59,7 +59,7 @@ async function apiFetch(endpoint, options = {}) {
     
     if (res.status === 401) {
         removeToken();
-        window.location.href = '/frontend/index.html';
+        window.location.href = '/index.html';
         return null;
     }
     
@@ -92,7 +92,7 @@ function renderNavbar(containerId) {
     if (!container) return;
     container.innerHTML = `
         <nav class="navbar">
-            <a href="/frontend/index.html" class="nav-brand">
+            <a href="/index.html" class="nav-brand">
                 <span class="nav-logo">🚌</span>
                 <span class="nav-title">BusTrack</span>
             </a>
@@ -109,11 +109,11 @@ function renderAdminSidebar(activeId) {
     const sidebar = document.getElementById('admin-sidebar');
     if (!sidebar) return;
     const links = [
-        { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/frontend/admin/dashboard.html' },
-        { id: 'buses', label: 'Buses', icon: '🚌', href: '/frontend/admin/buses.html' },
-        { id: 'routes', label: 'Routes', icon: '🗺️', href: '/frontend/admin/routes.html' },
-        { id: 'schedules', label: 'Schedules', icon: '📅', href: '/frontend/admin/schedules.html' },
-        { id: 'users', label: 'Users', icon: '👥', href: '/frontend/admin/users.html' },
+        { id: 'dashboard', label: 'Dashboard', icon: '📊', href: '/admin/dashboard.html' },
+        { id: 'buses', label: 'Buses', icon: '🚌', href: '/admin/buses.html' },
+        { id: 'routes', label: 'Routes', icon: '🗺️', href: '/admin/routes.html' },
+        { id: 'schedules', label: 'Schedules', icon: '📅', href: '/admin/schedules.html' },
+        { id: 'users', label: 'Users', icon: '👥', href: '/admin/users.html' },
     ];
     sidebar.innerHTML = `
         <div class="sidebar-header">
