@@ -21,7 +21,6 @@ Drivers periodically update their current location and average speed through the
 - **Dead reckoning engine** — The system estimates the bus position by projecting its last known coordinates forward using reported speed  and elapsed time.
 - **ETA calculation** — ETA is calculated by combining the estimated current bus position with route stop distance using OpenRouteServices
 - **Route and stop management** — Admin can manage bus routes, stops, and assign drivers
-- **Real Indian transit data** — Bus route and stop data sourced from data.gov.in open transit datasets
 - **Travel time calculation** — Uses OpenRouteService API for distance and travel time between coordinates
 - **Auto-generated API docs** — Interactive documentation at `/docs` via FastAPI Swagger UI
 
