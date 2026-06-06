@@ -1,12 +1,15 @@
 from sqlmodel import SQLModel, create_engine, Session
 
 from bustrack.model import User, Role
+from dotenv import load_dotenv
+import os
+load_dotenv(dotenv_path=".env")
 
-engine = create_engine("sqlite:///bust_track.db", echo=True)
+engine = create_engine(os.getenv("SUPABASE_URL"), echo=True)
 
 
 def create_db():
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(engine) 
     role_seeding()
 
 

@@ -24,14 +24,4 @@ with Session(engine) as db:
     db.add(user)
     db.commit()
     print("Admin created") '''
-hashed = create_password_hash("admin301")
 
-'''print("Hash:", hashed)
-if hashed == "$2b$12$f..Flk70JZSX9vafGMXaFuCsOcClpQtuxYqum52.0kqYGwB7HWz7i":
-    print("Hash matches the expected value.")
-else:
-    print("Hash does not match the expected value.")'''
-if bcrypt.verify("admin301" , "$2b$12$f..Flk70JZSX9vafGMXaFuCsOcClpQtuxYqum52.0kqYGwB7HWz7i"):
-    print("password i correct")
-else: 
-    print("incorrct")
