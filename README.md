@@ -5,6 +5,9 @@ A real-time public transport tracking backend for small cities, built with FastA
 BusTrack solves the core problem of public transport in smaller Indian cities — passengers have no idea where their bus is or when it will arrive. By combining real Indian transit data with a dead reckoning estimation engine, BusTrack provides live bus location estimates and ETAs without requiring GPS hardware on every vehicle.
 
 ---
+# Live Link
+[Bustrack](https://bus-track-gray.vercel.app/)
+---
 
 ## How It Works
 
@@ -28,7 +31,7 @@ Drivers periodically update their current location and average speed through the
 
 | API | Purpose |
 |-----|---------|
-| [data.gov.in](https://data.gov.in) | Indian government open transit data — bus routes and stops |
+
 | [OpenRouteService](https://openrouteservice.org) | Distance and travel time calculation between coordinates (free, no credit card) |
 
 ---
@@ -36,7 +39,7 @@ Drivers periodically update their current location and average speed through the
 ## Tech Stack
 
 - **FastAPI** — Backend framework
-- **SQLAlchemy** — ORM
+- **SQLModel** — ORM
 - **SQLite** (dev) / **PostgreSQL** (production)
 - **JWT** — Authentication
 - **Pydantic** — Data validation
@@ -53,23 +56,6 @@ Drivers periodically update their current location and average speed through the
 | Admin | Manage routes, stops, buses, assign drivers |
 
 ---
-
-## API Overview
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/auth/register` | Register new user |
-| POST | `/auth/login` | Login and get JWT token |
-| GET | `/buses/{bus_id}/location` | Get estimated current location of a bus |
-| GET | `/buses/{bus_id}/eta` | Get ETA to a specific stop |
-| POST | `/driver/location` | Driver updates current location and speed |
-| GET | `/routes` | List all routes |
-| GET | `/routes/{route_id}/stops` | Get all stops on a route |
-| POST | `/admin/routes` | Create a new route (admin) |
-| POST | `/admin/buses` | Add a new bus (admin) |
-
----
-
 # Testing Manual : 
 [BustrackTestingManual](https://docs.google.com/document/d/12hZiiZV0edQeXOjvxaGS36Ya7Rp0vO8A/edit?usp=drive_link&ouid=112278392948970091818&rtpof=true&sd=true)
 
